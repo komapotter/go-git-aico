@@ -86,13 +86,12 @@ func AskOpenAI(openAIURL, question string, verbose bool) (string, error) {
 }
 
 // GenerateCommitMessages takes the output of `git diff` and generates three commit message suggestions.
-func GenerateCommitMessages(diffOutput, openAIURL string, verbose bool) []string {
+func GenerateCommitMessages(diffOutput, openAIURL string, verbose bool) ([]string, error) {
 	// Create a question for the OpenAI API based on the diff output
 	question := CreateOpenAIQuestion(diffOutput)
 	response, err := AskOpenAI(openAIURL, question, verbose) // Now passing the verbose argument
 	if err != nil {
-		fmt.Println("Error while generating commit messages:", err)
-		return []string{"Error generating commit messages"}
+		return nil, err
 	}
 
 	// Split the response into separate lines
@@ -101,5 +100,5 @@ func GenerateCommitMessages(diffOutput, openAIURL string, verbose bool) []string
 		suggestions[i] = strings.TrimPrefix(suggestion, "- ")
 	}
 
-	return suggestions
+	return suggestions, nil
 }

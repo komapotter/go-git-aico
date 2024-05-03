@@ -88,7 +88,12 @@ func main() {
 	go startSpinner(done)
 
 	// Generate commit messages based on the diff
-	messages := aico.GenerateCommitMessages(diffOutput, openAIURL, verbose)
+	messages, err := aico.GenerateCommitMessages(diffOutput, openAIURL, verbose)
+	if err != nil {
+		done <- true // Stop the spinner
+		fmt.Println("Error generating commit messages:", err)
+		return
+	}
 
 	// Stop the spinner
 	done <- true
