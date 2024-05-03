@@ -6,9 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
+
+	"github.com/kelseyhightower/envconfig"
 )
+
+type Config struct {
+	OpenAIKey string `envconfig:"OPENAI_API_KEY" required:"true"`
+}
 
 type OpenAIRequest struct {
 	Model       string          `json:"model"`
@@ -32,7 +37,12 @@ type OpenAIResponse struct {
 }
 
 func AskOpenAI(openAIURL, question string, verbose bool) (string, error) {
-	apiKey := os.Getenv("OPENAI_API_KEY") // Get the API key from an environment variable
+	var cfg Config
+	err := envconfig.Process("", &cfg)
+	if err != nil {
+		return "", err
+	}
+
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
 		Model:       "gpt-4-turbo", // Use an appropriate model
@@ -50,7 +60,7 @@ func AskOpenAI(openAIURL, question string, verbose bool) (string, error) {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", "Bearer "+cfg.OpenAIKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
