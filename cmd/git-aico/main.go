@@ -112,8 +112,9 @@ func main() {
 	// Stop the spinner
 	done <- true
 
-	if len(messages) == 0 {
-		fmt.Println("Error: No commit message candidates were generated")
+	// Check if the number of messages matches the expected number of candidates
+	if len(messages) != cfg.NumCandidates {
+		fmt.Printf("Error: Expected %d commit message candidates, but got %d\n", cfg.NumCandidates, len(messages))
 		return
 	}
 
