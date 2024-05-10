@@ -51,7 +51,7 @@ func startSpinner(done chan bool) {
 	for {
 		select {
 		case <-done:
-			fmt.Printf("\r") // Clear the line when done
+			fmt.Printf("\r\033[K") // Clear the entire line when done
 			return
 		default:
 			fmt.Printf("\r  %c %s%s", spinnerChars[i%len(spinnerChars)], "Reading git diff staged ", dots)
