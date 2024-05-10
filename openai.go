@@ -7,14 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/kelseyhightower/envconfig"
 )
-
-type Config struct {
-	OpenAIKey     string `envconfig:"OPENAI_API_KEY" required:"true"`
-	NumCandidates int    `envconfig:"NUM_CANDIDATES" default:"3"`
-}
 
 type OpenAIRequest struct {
 	Model       string          `json:"model"`
@@ -38,16 +31,10 @@ type OpenAIResponse struct {
 }
 
 // GenerateCommitMessages takes the output of `git diff` and generates three commit message suggestions.
-func GenerateCommitMessages(diffOutput, openAIURL string, verbose bool) ([]string, error) {
-	var cfg Config
-	err := envconfig.Process("", &cfg)
-	if err != nil {
-		return nil, err
-	}
-
+func GenerateCommitMessages(diffOutput, openAIURL, openAIKey string, numCandidates int, verbose bool) ([]string, error) {
 	// Create a question for the OpenAI API based on the diff output
-	question := CreateOpenAIQuestion(diffOutput, cfg.NumCandidates)
-	response, err := askOpenAI(openAIURL, cfg.OpenAIKey, question, verbose) // Now passing the verbose argument
+	question := CreateOpenAIQuestion(diffOutput, numCandidates)
+	response, err := askOpenAI(openAIURL, openAIKey, question, verbose) // Now passing the verbose argument
 	if err != nil {
 		return nil, err
 	}

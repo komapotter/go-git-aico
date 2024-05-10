@@ -8,10 +8,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kelseyhightower/envconfig"
+
 	aico "github.com/komapotter/go-git-aico"
 )
 
 const openAIURL = "https://api.openai.com/v1/chat/completions"
+
+type Config struct {
+	OpenAIKey     string `envconfig:"OPENAI_API_KEY" required:"true"`
+	NumCandidates int    `envconfig:"NUM_CANDIDATES" default:"3"`
+}
 
 var verbose bool // Global flag to control verbose output
 
@@ -66,6 +73,13 @@ func startSpinner(done chan bool) {
 }
 
 func main() {
+	var cfg Config
+	err := envconfig.Process("", &cfg)
+	if err != nil {
+		fmt.Println("Error reading envvars", err)
+		return
+	}
+
 	verbose = false // Default verbose to false
 	if len(os.Args) > 1 && os.Args[1] == "-v" {
 		verbose = true
@@ -88,7 +102,7 @@ func main() {
 	go startSpinner(done)
 
 	// Generate commit messages based on the diff
-	messages, err := aico.GenerateCommitMessages(diffOutput, openAIURL, verbose)
+	messages, err := aico.GenerateCommitMessages(diffOutput, openAIURL, cfg.OpenAIKey, cfg.NumCandidates, verbose)
 	if err != nil {
 		done <- true // Stop the spinner
 		fmt.Println("Error generating commit messages:", err)
