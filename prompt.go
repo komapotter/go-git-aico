@@ -3,9 +3,9 @@ package aico
 import "fmt"
 
 // CreateOpenAIQuestion formats a question for the OpenAI API based on the git diff output.
-func CreateOpenAIQuestion(diffOutput string) string {
+func CreateOpenAIQuestion(diffOutput string, numCandidates int) string {
 	prompt := `
-Please generate 3 appropriate commit message candidates based on the context.
+Please generate %d appropriate commit message candidates based on the context.
 (Do NOT number at the beginning of the line)
 
 Here is a sample of commit messages for different scenarios.
@@ -51,5 +51,5 @@ Output Format:
 ---
 
 %s`
-	return fmt.Sprintf(prompt, diffOutput)
+	return fmt.Sprintf(prompt, numCandidates, diffOutput)
 }

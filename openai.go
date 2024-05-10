@@ -12,7 +12,8 @@ import (
 )
 
 type Config struct {
-	OpenAIKey string `envconfig:"OPENAI_API_KEY" required:"true"`
+	OpenAIKey     string `envconfig:"OPENAI_API_KEY" required:"true"`
+	NumCandidates int    `envconfig:"NUM_CANDIDATES" default:"3"`
 }
 
 type OpenAIRequest struct {
@@ -36,13 +37,31 @@ type OpenAIResponse struct {
 	} `json:"choices"`
 }
 
-func AskOpenAI(openAIURL, question string, verbose bool) (string, error) {
+// GenerateCommitMessages takes the output of `git diff` and generates three commit message suggestions.
+func GenerateCommitMessages(diffOutput, openAIURL string, verbose bool) ([]string, error) {
 	var cfg Config
 	err := envconfig.Process("", &cfg)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
+	// Create a question for the OpenAI API based on the diff output
+	question := CreateOpenAIQuestion(diffOutput, cfg.NumCandidates)
+	response, err := askOpenAI(openAIURL, cfg.OpenAIKey, question, verbose) // Now passing the verbose argument
+	if err != nil {
+		return nil, err
+	}
+
+	// Split the response into separate lines
+	suggestions := strings.Split(response, "\n")
+	for i, suggestion := range suggestions {
+		suggestions[i] = strings.TrimPrefix(suggestion, "- ")
+	}
+
+	return suggestions, nil
+}
+
+func askOpenAI(openAIURL, openAIKey, question string, verbose bool) (string, error) {
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
 		Model:       "gpt-4-turbo", // Use an appropriate model
@@ -60,7 +79,7 @@ func AskOpenAI(openAIURL, question string, verbose bool) (string, error) {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cfg.OpenAIKey)
+	req.Header.Set("Authorization", "Bearer "+openAIKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -93,22 +112,4 @@ func AskOpenAI(openAIURL, question string, verbose bool) (string, error) {
 	}
 
 	return "", fmt.Errorf("no response from OpenAI")
-}
-
-// GenerateCommitMessages takes the output of `git diff` and generates three commit message suggestions.
-func GenerateCommitMessages(diffOutput, openAIURL string, verbose bool) ([]string, error) {
-	// Create a question for the OpenAI API based on the diff output
-	question := CreateOpenAIQuestion(diffOutput)
-	response, err := AskOpenAI(openAIURL, question, verbose) // Now passing the verbose argument
-	if err != nil {
-		return nil, err
-	}
-
-	// Split the response into separate lines
-	suggestions := strings.Split(response, "\n")
-	for i, suggestion := range suggestions {
-		suggestions[i] = strings.TrimPrefix(suggestion, "- ")
-	}
-
-	return suggestions, nil
 }
