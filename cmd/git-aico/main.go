@@ -78,15 +78,17 @@ func parseOpenAIResponse(response string, verbose bool) ([]string, error) {
 		return nil, fmt.Errorf("response from OpenAI is empty")
 	}
 
-	messages := strings.Split(strings.TrimSpace(response), "\n")
+	var messages []string
+	for _, line := range strings.Split(strings.TrimSpace(response), "\n") {
+		trimmedLine := strings.TrimPrefix(line, "- ")
+		if trimmedLine != "" {
+			messages = append(messages, trimmedLine)
+		}
+	}
 	if len(messages) == 0 {
 		return nil, fmt.Errorf("no commit messages found in the response")
 	}
 
-	// Remove any leading "- " from each message
-	for i := range messages {
-		messages[i] = strings.TrimPrefix(messages[i], "- ")
-	}
 
 	// Optionally print the candidate messages
 	if verbose {

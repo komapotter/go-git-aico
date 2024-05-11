@@ -69,8 +69,20 @@ func TestParseOpenAIResponse(t *testing.T) {
 		wantErr      bool
 	}{
 		{
-			name:         "valid response",
+			name:         "valid response(new-line-code)",
+			response:     "Suggest a commit message\nImprove code readability\nRefactor subsystem X for clarity",
+			wantMessages: []string{"Suggest a commit message", "Improve code readability", "Refactor subsystem X for clarity"},
+			wantErr:      false,
+		},
+		{
+			name:         "valid response(hyphen-with-new-line-code)",
 			response:     "- Suggest a commit message\n- Improve code readability\n- Refactor subsystem X for clarity",
+			wantMessages: []string{"Suggest a commit message", "Improve code readability", "Refactor subsystem X for clarity"},
+			wantErr:      false,
+		},
+		{
+			name:         "valid response(double-new-line-code)",
+			response:     "Suggest a commit message\n\nImprove code readability\n\nRefactor subsystem X for clarity",
 			wantMessages: []string{"Suggest a commit message", "Improve code readability", "Refactor subsystem X for clarity"},
 			wantErr:      false,
 		},
