@@ -72,8 +72,8 @@ func startSpinner(done chan bool) {
 	}
 }
 
-// generateCommitMessages takes the output of `git diff` and generates three commit message suggestions.
-func generateCommitMessages(response string, verbose bool) ([]string, error) {
+// parseOpenAIResponse takes the response from OpenAI and parses it into a list of commit message suggestions.
+func parseOpenAIResponse(response string, verbose bool) ([]string, error) {
 	// Split the response into separate lines
 	messages := strings.Split(response, "\n")
 	for i, m := range messages {
@@ -134,7 +134,7 @@ func main() {
 	done <- true
 
 	// Split the response into separate lines
-	messages, err := generateCommitMessages(response, verbose)
+	messages, err := parseOpenAIResponse(response, verbose)
 	if err != nil {
 		fmt.Println("Error split the response:", err)
 		return
