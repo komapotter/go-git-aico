@@ -30,24 +30,6 @@ type OpenAIResponse struct {
 	} `json:"choices"`
 }
 
-// GenerateCommitMessages takes the output of `git diff` and generates three commit message suggestions.
-//func GenerateCommitMessages(diffOutput, openAIURL, openAIKey string, numCandidates int, verbose bool) ([]string, error) {
-//	// Create a question for the OpenAI API based on the diff output
-//	question := CreateOpenAIQuestion(diffOutput, numCandidates)
-//	response, err := askOpenAI(openAIURL, openAIKey, question, verbose) // Now passing the verbose argument
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	// Split the response into separate lines
-//	suggestions := strings.Split(response, "\n")
-//	for i, suggestion := range suggestions {
-//		suggestions[i] = strings.TrimPrefix(suggestion, "- ")
-//	}
-//
-//	return suggestions, nil
-//}
-
 func AskOpenAI(openAIURL, openAIKey, question string, verbose bool) (string, error) {
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},

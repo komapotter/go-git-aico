@@ -72,6 +72,25 @@ func startSpinner(done chan bool) {
 	}
 }
 
+// generateCommitMessages takes the output of `git diff` and generates three commit message suggestions.
+func generateCommitMessages(response string, verbose bool) ([]string, error) {
+	// Split the response into separate lines
+	messages := strings.Split(response, "\n")
+	for i, m := range messages {
+		messages[i] = strings.TrimPrefix(m, "- ")
+	}
+
+	// Debugging line to print messages
+	if verbose {
+		fmt.Println("Candidate messages:")
+		for _, m := range messages {
+			fmt.Printf("msg: %v\n", m)
+		}
+	}
+
+	return messages, nil
+}
+
 func main() {
 	var cfg Config
 	err := envconfig.Process("", &cfg)
@@ -115,17 +134,10 @@ func main() {
 	done <- true
 
 	// Split the response into separate lines
-	messages := strings.Split(response, "\n")
-	for i, m := range messages {
-		messages[i] = strings.TrimPrefix(m, "- ")
-	}
-
-	// Debugging line to print messages
-	if verbose {
-		fmt.Println("Candidates from OpenAI")
-		for _, m := range messages {
-			fmt.Printf("msg: %v\n", m)
-		}
+	messages, err := generateCommitMessages(response, verbose)
+	if err != nil {
+		fmt.Println("Error split the response:", err)
+		return
 	}
 
 	// Check if the number of messages matches the expected number of candidates
