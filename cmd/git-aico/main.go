@@ -101,16 +101,32 @@ func main() {
 	done := make(chan bool)
 	go startSpinner(done)
 
-	// Generate commit messages based on the diff
-	messages, err := aico.GenerateCommitMessages(diffOutput, openAIURL, cfg.OpenAIKey, cfg.NumCandidates, verbose)
+	// Create a question for the OpenAI API based on the diff output
+	question := aico.CreateOpenAIQuestion(diffOutput, cfg.NumCandidates)
+	// Ask OpenAI for commit message suggestions
+	response, err := aico.AskOpenAI(openAIURL, cfg.OpenAIKey, question, verbose)
 	if err != nil {
 		done <- true // Stop the spinner
-		fmt.Println("Error generating commit messages:", err)
+		fmt.Println("Error asking OpenAI:", err)
 		return
 	}
 
 	// Stop the spinner
 	done <- true
+
+	// Split the response into separate lines
+	messages := strings.Split(response, "\n")
+	for i, m := range messages {
+		messages[i] = strings.TrimPrefix(m, "- ")
+	}
+
+	// Debugging line to print messages
+	if verbose {
+		fmt.Println("Candidates from OpenAI")
+		for _, m := range messages {
+			fmt.Printf("msg: %v\n", m)
+		}
+	}
 
 	// Check if the number of messages matches the expected number of candidates
 	if len(messages) != cfg.NumCandidates {

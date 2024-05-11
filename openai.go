@@ -31,24 +31,24 @@ type OpenAIResponse struct {
 }
 
 // GenerateCommitMessages takes the output of `git diff` and generates three commit message suggestions.
-func GenerateCommitMessages(diffOutput, openAIURL, openAIKey string, numCandidates int, verbose bool) ([]string, error) {
-	// Create a question for the OpenAI API based on the diff output
-	question := CreateOpenAIQuestion(diffOutput, numCandidates)
-	response, err := askOpenAI(openAIURL, openAIKey, question, verbose) // Now passing the verbose argument
-	if err != nil {
-		return nil, err
-	}
+//func GenerateCommitMessages(diffOutput, openAIURL, openAIKey string, numCandidates int, verbose bool) ([]string, error) {
+//	// Create a question for the OpenAI API based on the diff output
+//	question := CreateOpenAIQuestion(diffOutput, numCandidates)
+//	response, err := askOpenAI(openAIURL, openAIKey, question, verbose) // Now passing the verbose argument
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	// Split the response into separate lines
+//	suggestions := strings.Split(response, "\n")
+//	for i, suggestion := range suggestions {
+//		suggestions[i] = strings.TrimPrefix(suggestion, "- ")
+//	}
+//
+//	return suggestions, nil
+//}
 
-	// Split the response into separate lines
-	suggestions := strings.Split(response, "\n")
-	for i, suggestion := range suggestions {
-		suggestions[i] = strings.TrimPrefix(suggestion, "- ")
-	}
-
-	return suggestions, nil
-}
-
-func askOpenAI(openAIURL, openAIKey, question string, verbose bool) (string, error) {
+func AskOpenAI(openAIURL, openAIKey, question string, verbose bool) (string, error) {
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
 		Model:       "gpt-4-turbo", // Use an appropriate model
@@ -84,7 +84,7 @@ func askOpenAI(openAIURL, openAIKey, question string, verbose bool) (string, err
 	}
 
 	if verbose {
-		fmt.Println("Raw response from OpenAI:", string(respBody)) // Debugging line to print raw response
+		fmt.Printf("\nRaw response from OpenAI: %v", string(respBody)) // Debugging line to print raw response
 	}
 
 	var apiResp OpenAIResponse
