@@ -60,3 +60,63 @@ func TestSelectCommitMessage(t *testing.T) {
 		}
 	}
 }
+
+func TestParseOpenAIResponse(t *testing.T) {
+	tests := []struct {
+		name         string
+		response     string
+		wantMessages []string
+		wantErr      bool
+	}{
+		{
+			name:         "valid response(new-line-code)",
+			response:     "Suggest a commit message\nImprove code readability\nRefactor subsystem X for clarity",
+			wantMessages: []string{"Suggest a commit message", "Improve code readability", "Refactor subsystem X for clarity"},
+			wantErr:      false,
+		},
+		{
+			name:         "valid response(hyphen-with-new-line-code)",
+			response:     "- Suggest a commit message\n- Improve code readability\n- Refactor subsystem X for clarity",
+			wantMessages: []string{"Suggest a commit message", "Improve code readability", "Refactor subsystem X for clarity"},
+			wantErr:      false,
+		},
+		{
+			name:         "valid response(double-new-line-code)",
+			response:     "Suggest a commit message\n\nImprove code readability\n\nRefactor subsystem X for clarity",
+			wantMessages: []string{"Suggest a commit message", "Improve code readability", "Refactor subsystem X for clarity"},
+			wantErr:      false,
+		},
+		{
+			name:         "empty response",
+			response:     "",
+			wantMessages: nil,
+			wantErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotMessages, err := parseOpenAIResponse(tt.response, false)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseOpenAIResponse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !equalSlices(gotMessages, tt.wantMessages) {
+				t.Errorf("parseOpenAIResponse() = %v, want %v", gotMessages, tt.wantMessages)
+			}
+		})
+	}
+}
+
+// equalSlices checks if two slices of strings are equal
+func equalSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}

@@ -72,6 +72,35 @@ func startSpinner(done chan bool) {
 	}
 }
 
+// parseOpenAIResponse takes the response from OpenAI and parses it into a list of commit message suggestions.
+func parseOpenAIResponse(response string, verbose bool) ([]string, error) {
+	if response == "" {
+		return nil, fmt.Errorf("response from OpenAI is empty")
+	}
+
+	var messages []string
+	for _, line := range strings.Split(strings.TrimSpace(response), "\n") {
+		trimmedLine := strings.TrimPrefix(line, "- ")
+		if trimmedLine != "" {
+			messages = append(messages, trimmedLine)
+		}
+	}
+	if len(messages) == 0 {
+		return nil, fmt.Errorf("no commit messages found in the response")
+	}
+
+
+	// Optionally print the candidate messages
+	if verbose {
+		fmt.Println("Candidate messages:")
+		for _, message := range messages {
+			fmt.Printf("msg: %v\n", message)
+		}
+	}
+
+	return messages, nil
+}
+
 func main() {
 	var cfg Config
 	err := envconfig.Process("", &cfg)
@@ -101,16 +130,25 @@ func main() {
 	done := make(chan bool)
 	go startSpinner(done)
 
-	// Generate commit messages based on the diff
-	messages, err := aico.GenerateCommitMessages(diffOutput, openAIURL, cfg.OpenAIKey, cfg.NumCandidates, verbose)
+	// Create a question for the OpenAI API based on the diff output
+	question := aico.CreateOpenAIQuestion(diffOutput, cfg.NumCandidates)
+	// Ask OpenAI for commit message suggestions
+	response, err := aico.AskOpenAI(openAIURL, cfg.OpenAIKey, question, verbose)
 	if err != nil {
 		done <- true // Stop the spinner
-		fmt.Println("Error generating commit messages:", err)
+		fmt.Println("Error asking OpenAI:", err)
 		return
 	}
 
 	// Stop the spinner
 	done <- true
+
+	// Split the response into separate lines
+	messages, err := parseOpenAIResponse(response, verbose)
+	if err != nil {
+		fmt.Println("Error split the response:", err)
+		return
+	}
 
 	// Check if the number of messages matches the expected number of candidates
 	if len(messages) != cfg.NumCandidates {
