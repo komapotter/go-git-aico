@@ -74,17 +74,25 @@ func startSpinner(done chan bool) {
 
 // parseOpenAIResponse takes the response from OpenAI and parses it into a list of commit message suggestions.
 func parseOpenAIResponse(response string, verbose bool) ([]string, error) {
-	// Split the response into separate lines
-	messages := strings.Split(response, "\n")
-	for i, m := range messages {
-		messages[i] = strings.TrimPrefix(m, "- ")
+	if response == "" {
+		return nil, fmt.Errorf("response from OpenAI is empty")
 	}
 
-	// Debugging line to print messages
+	messages := strings.Split(strings.TrimSpace(response), "\n")
+	if len(messages) == 0 {
+		return nil, fmt.Errorf("no commit messages found in the response")
+	}
+
+	// Remove any leading "- " from each message
+	for i := range messages {
+		messages[i] = strings.TrimPrefix(messages[i], "- ")
+	}
+
+	// Optionally print the candidate messages
 	if verbose {
 		fmt.Println("Candidate messages:")
-		for _, m := range messages {
-			fmt.Printf("msg: %v\n", m)
+		for _, message := range messages {
+			fmt.Printf("msg: %v\n", message)
 		}
 	}
 
