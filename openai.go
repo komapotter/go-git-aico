@@ -33,9 +33,9 @@ type OpenAIResponse struct {
 func AskOpenAI(openAIURL, openAIKey, question string, verbose bool) (string, error) {
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
-		Model:       "gpt-4-turbo", // Use an appropriate model
-		Temperature: 0.1,           // Optional: control randomness
-		MaxTokens:   450,           // Limit the length of the response
+		Model:       "gpt-4o", // Use an appropriate model
+		Temperature: 0.1,      // Optional: control randomness
+		MaxTokens:   450,      // Limit the length of the response
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
