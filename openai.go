@@ -30,12 +30,12 @@ type OpenAIResponse struct {
 	} `json:"choices"`
 }
 
-func AskOpenAI(openAIURL, openAIKey, question string, verbose bool) (string, error) {
+func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, error) {
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
-		Model:       "gpt-4o", // Use an appropriate model
-		Temperature: 0.1,      // Optional: control randomness
-		MaxTokens:   450,      // Limit the length of the response
+		Model:       openAIModel, // Use the model from the configuration
+		Temperature: openAITemperature, // Use the temperature from the configuration
+		MaxTokens:   openAIMaxTokens, // Use the max tokens from the configuration
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
