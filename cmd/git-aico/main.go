@@ -16,8 +16,11 @@ import (
 const openAIURL = "https://api.openai.com/v1/chat/completions"
 
 type Config struct {
-	OpenAIKey     string `envconfig:"OPENAI_API_KEY" required:"true"`
-	NumCandidates int    `envconfig:"NUM_CANDIDATES" default:"3"`
+	OpenAIKey         string  `envconfig:"OPENAI_API_KEY" required:"true"`
+	NumCandidates     int     `envconfig:"NUM_CANDIDATES" default:"3"`
+	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
+	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
+	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
 }
 
 var verbose bool // Global flag to control verbose output
@@ -89,7 +92,6 @@ func parseOpenAIResponse(response string, verbose bool) ([]string, error) {
 		return nil, fmt.Errorf("no commit messages found in the response")
 	}
 
-
 	// Optionally print the candidate messages
 	if verbose {
 		fmt.Println("Candidate messages:")
@@ -130,10 +132,14 @@ func main() {
 	done := make(chan bool)
 	go startSpinner(done)
 
+	if verbose {
+		fmt.Printf("Using OpenAI model: %s\n", cfg.OpenAIModel)
+	}
+
 	// Create a question for the OpenAI API based on the diff output
 	question := aico.CreateOpenAIQuestion(diffOutput, cfg.NumCandidates)
 	// Ask OpenAI for commit message suggestions
-	response, err := aico.AskOpenAI(openAIURL, cfg.OpenAIKey, question, verbose)
+	response, err := aico.AskOpenAI(openAIURL, cfg.OpenAIKey, cfg.OpenAIModel, cfg.OpenAITemperature, cfg.OpenAIMaxTokens, question, verbose)
 	if err != nil {
 		done <- true // Stop the spinner
 		fmt.Println("Error asking OpenAI:", err)
