@@ -20,4 +20,22 @@ This will install the `git-aico` executable in your `$GOPATH/bin` directory.
 5. Select the appropriate commit message by entering the number corresponding to the suggestion.
 6. The tool will automatically commit your staged changes with the selected commit message.
 
-Note: The tool requires an environment variable `OPENAI_API_KEY` to be set with your OpenAI API key.
+### Environment Variables
+
+To use this tool, you need to set the following environment variables:
+
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `NUM_CANDIDATES`: The number of commit message candidates to generate (default: 3)
+- `OPENAI_MODEL`: The OpenAI model to use (default: gpt-4o)
+- `OPENAI_TEMPERATURE`: The OpenAI temperature parameter (default: 0.1)
+- `OPENAI_MAX_TOKENS`: The maximum number of tokens for OpenAI (default: 450)
+
+Example of setting environment variables:
+
+```sh
+export OPENAI_API_KEY="your_openai_api_key"
+export NUM_CANDIDATES=3
+export OPENAI_MODEL="gpt-4o"
+export OPENAI_TEMPERATURE=0.1
+export OPENAI_MAX_TOKENS=450
+```
