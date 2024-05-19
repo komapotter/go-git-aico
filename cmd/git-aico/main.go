@@ -103,6 +103,13 @@ func parseOpenAIResponse(response string, verbose bool) ([]string, error) {
 	return messages, nil
 }
 
+func printHelp() {
+	fmt.Println("Usage: git-aico [options]")
+	fmt.Println("Options:")
+	fmt.Println("  -h        Show this help message")
+	fmt.Println("  -v        Enable verbose output")
+}
+
 func main() {
 	var cfg Config
 	err := envconfig.Process("", &cfg)
@@ -112,8 +119,13 @@ func main() {
 	}
 
 	verbose = false // Default verbose to false
-	if len(os.Args) > 1 && os.Args[1] == "-v" {
-		verbose = true
+	for _, arg := range os.Args[1:] {
+		if arg == "-v" {
+			verbose = true
+		} else if arg == "-h" {
+			printHelp()
+			return
+		}
 	}
 
 	// Execute git diff and get the output
