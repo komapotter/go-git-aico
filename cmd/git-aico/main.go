@@ -108,6 +108,7 @@ func printHelp() {
 	fmt.Println("Options:")
 	fmt.Println("  -h        Show this help message")
 	fmt.Println("  -v        Enable verbose output")
+	fmt.Println("  -j        Output commit message suggestions in Japanese")
 }
 
 func main() {
