@@ -118,13 +118,16 @@ func main() {
 		return
 	}
 
-	verbose = false // Default verbose to false
+	verbose := false // Default verbose to false
+	japaneseOutput := false // Default Japanese output to false
 	for _, arg := range os.Args[1:] {
 		if arg == "-v" {
 			verbose = true
 		} else if arg == "-h" {
 			printHelp()
 			return
+		} else if arg == "-j" {
+			japaneseOutput = true
 		}
 	}
 
@@ -149,7 +152,7 @@ func main() {
 	}
 
 	// Create a question for the OpenAI API based on the diff output
-	question := aico.CreateOpenAIQuestion(diffOutput, cfg.NumCandidates)
+	question := aico.CreateOpenAIQuestion(diffOutput, cfg.NumCandidates, japaneseOutput)
 	// Ask OpenAI for commit message suggestions
 	response, err := aico.AskOpenAI(openAIURL, cfg.OpenAIKey, cfg.OpenAIModel, cfg.OpenAITemperature, cfg.OpenAIMaxTokens, question, verbose)
 	if err != nil {
