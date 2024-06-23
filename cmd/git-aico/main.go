@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"strconv"
@@ -23,7 +24,10 @@ type Config struct {
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
 }
 
-var verbose bool // Global flag to control verbose output
+var (
+	verbose        bool // Global flag to control verbose output
+	japaneseOutput bool // Global flag to control Japanese output
+)
 
 // selectCommitMessage prompts the user to select a commit message from a list of suggestions.
 func selectCommitMessage(suggestions []string) (string, error) {
@@ -122,17 +126,15 @@ func main() {
 		return
 	}
 
-	verbose := false        // Default verbose to false
-	japaneseOutput := false // Default Japanese output to false
-	for _, arg := range os.Args[1:] {
-		if arg == "-v" {
-			verbose = true
-		} else if arg == "-h" {
-			printHelp()
-			return
-		} else if arg == "-j" {
-			japaneseOutput = true
-		}
+	flag.BoolVar(&verbose, "v", false, "Enable verbose output")
+	flag.BoolVar(&japaneseOutput, "j", false, "Output commit message suggestions in Japanese")
+	showHelp := flag.Bool("h", false, "Show this help message")
+
+	flag.Parse()
+
+	if *showHelp {
+		printHelp()
+		return
 	}
 
 	// Execute git diff and get the output
