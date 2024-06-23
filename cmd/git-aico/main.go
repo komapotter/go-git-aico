@@ -110,10 +110,18 @@ func parseOpenAIResponse(response string, verbose bool) ([]string, error) {
 func printHelp() {
 	helpText := `
 Usage: git-aico [options]
+
 Options:
   -h        Show this help message
   -v        Enable verbose output
   -j        Output commit message suggestions in Japanese
+
+Environment Variables:
+  OPENAI_API_KEY       Your OpenAI API key (required)
+  NUM_CANDIDATES       Number of commit message candidates to generate (default: 3)
+  OPENAI_MODEL         OpenAI model to use (default: gpt-4o)
+  OPENAI_TEMPERATURE   Sampling temperature (default: 0.1)
+  OPENAI_MAX_TOKENS    Maximum number of tokens in the response (default: 450)
 `
 	fmt.Println(helpText)
 }
