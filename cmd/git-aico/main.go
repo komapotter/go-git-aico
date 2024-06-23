@@ -104,11 +104,14 @@ func parseOpenAIResponse(response string, verbose bool) ([]string, error) {
 }
 
 func printHelp() {
-	fmt.Println("Usage: git-aico [options]")
-	fmt.Println("Options:")
-	fmt.Println("  -h        Show this help message")
-	fmt.Println("  -v        Enable verbose output")
-	fmt.Println("  -j        Output commit message suggestions in Japanese")
+	helpText := `
+Usage: git-aico [options]
+Options:
+  -h        Show this help message
+  -v        Enable verbose output
+  -j        Output commit message suggestions in Japanese
+`
+	fmt.Println(helpText)
 }
 
 func main() {
@@ -119,7 +122,7 @@ func main() {
 		return
 	}
 
-	verbose := false // Default verbose to false
+	verbose := false        // Default verbose to false
 	japaneseOutput := false // Default Japanese output to false
 	for _, arg := range os.Args[1:] {
 		if arg == "-v" {
