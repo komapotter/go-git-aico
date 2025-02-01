@@ -33,9 +33,9 @@ type OpenAIResponse struct {
 func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, error) {
 	data := OpenAIRequest{
 		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
-		Model:       openAIModel, // Use the model from the configuration
+		Model:       openAIModel,       // Use the model from the configuration
 		Temperature: openAITemperature, // Use the temperature from the configuration
-		MaxTokens:   openAIMaxTokens, // Use the max tokens from the configuration
+		MaxTokens:   openAIMaxTokens,   // Use the max tokens from the configuration
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
@@ -56,13 +56,13 @@ func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("received non-OK HTTP status from OpenAI: %s", resp.Status)
-	}
-
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("received non-OK HTTP status from OpenAI: %s, response body: %s", resp.Status, string(respBody))
 	}
 
 	if verbose {
