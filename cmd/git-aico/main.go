@@ -14,14 +14,29 @@ import (
 	aico "github.com/komapotter/go-git-aico"
 )
 
-const openAIURL = "https://api.openai.com/v1/chat/completions"
+const (
+	openAIURL    = "https://api.openai.com/v1/chat/completions"
+	anthropicURL = "https://api.anthropic.com/v1/messages"
+)
 
 type Config struct {
-	OpenAIKey         string  `envconfig:"OPENAI_API_KEY" required:"true"`
-	NumCandidates     int     `envconfig:"NUM_CANDIDATES" default:"3"`
+	// API Keys
+	OpenAIKey     string `envconfig:"OPENAI_API_KEY"`
+	AnthropicKey  string `envconfig:"ANTHROPIC_API_KEY"`
+	
+	// General config
+	NumCandidates int     `envconfig:"NUM_CANDIDATES" default:"3"`
+	ModelProvider string  `envconfig:"MODEL_PROVIDER" default:"openai"` // "openai" or "anthropic"
+	
+	// OpenAI config
 	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
 	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
+	
+	// Anthropic config
+	AnthropicModel       string  `envconfig:"ANTHROPIC_MODEL" default:"claude-3-haiku-20240307"`
+	AnthropicTemperature float64 `envconfig:"ANTHROPIC_TEMPERATURE" default:"0.1"`
+	AnthropicMaxTokens   int     `envconfig:"ANTHROPIC_MAX_TOKENS" default:"450"`
 }
 
 var (
@@ -68,7 +83,7 @@ func startSpinner(done chan bool) {
 			fmt.Printf("\r\033[K") // Clear the entire line when done
 			return
 		default:
-			fmt.Printf("\r  %c %s%s", spinnerChars[i%len(spinnerChars)], "Reading git diff staged ", dots)
+			fmt.Printf("\r  %c %s%s", spinnerChars[i%len(spinnerChars)], "Generating commit messages ", dots)
 			if time.Since(lastDotTime) >= time.Second {
 				dots += "."
 				lastDotTime = time.Now()
@@ -79,10 +94,10 @@ func startSpinner(done chan bool) {
 	}
 }
 
-// parseOpenAIResponse takes the response from OpenAI and parses it into a list of commit message suggestions.
-func parseOpenAIResponse(response string, verbose bool) ([]string, error) {
+// parseModelResponse takes the response from the LLM and parses it into a list of commit message suggestions.
+func parseModelResponse(response string, verbose bool) ([]string, error) {
 	if response == "" {
-		return nil, fmt.Errorf("response from OpenAI is empty")
+		return nil, fmt.Errorf("response from model is empty")
 	}
 
 	var messages []string
@@ -117,11 +132,20 @@ Options:
   -j        Output commit message suggestions in Japanese
 
 Environment Variables:
-  OPENAI_API_KEY       Your OpenAI API key (required)
+  MODEL_PROVIDER       Model provider to use: "openai" or "anthropic" (default: openai)
   NUM_CANDIDATES       Number of commit message candidates to generate (default: 3)
+
+  # OpenAI Configuration
+  OPENAI_API_KEY       Your OpenAI API key (required when MODEL_PROVIDER=openai)
   OPENAI_MODEL         OpenAI model to use (default: gpt-4o)
   OPENAI_TEMPERATURE   Sampling temperature (default: 0.1)
   OPENAI_MAX_TOKENS    Maximum number of tokens in the response (default: 450)
+
+  # Anthropic Configuration
+  ANTHROPIC_API_KEY    Your Anthropic API key (required when MODEL_PROVIDER=anthropic)
+  ANTHROPIC_MODEL      Anthropic model to use (default: claude-3-haiku-20240307)
+  ANTHROPIC_TEMPERATURE Sampling temperature (default: 0.1)
+  ANTHROPIC_MAX_TOKENS Maximum number of tokens in the response (default: 450)
 `
 	fmt.Println(helpText)
 }
@@ -145,6 +169,23 @@ func main() {
 		return
 	}
 
+	// Validate required API keys based on selected provider
+	switch cfg.ModelProvider {
+	case "openai":
+		if cfg.OpenAIKey == "" {
+			fmt.Println("Error: OPENAI_API_KEY is required when MODEL_PROVIDER=openai")
+			return
+		}
+	case "anthropic":
+		if cfg.AnthropicKey == "" {
+			fmt.Println("Error: ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic")
+			return
+		}
+	default:
+		fmt.Printf("Error: Unknown model provider: %s. Supported providers are 'openai' and 'anthropic'\n", cfg.ModelProvider)
+		return
+	}
+
 	// Execute git diff and get the output
 	diffOutput, err := aico.ExecuteGitDiffStaged()
 	if err != nil {
@@ -161,17 +202,26 @@ func main() {
 	done := make(chan bool)
 	go startSpinner(done)
 
-	if verbose {
-		fmt.Printf("Using OpenAI model: %s\n", cfg.OpenAIModel)
+	// Create a question based on the diff output
+	question := aico.CreateOpenAIQuestion(diffOutput, cfg.NumCandidates, japaneseOutput)
+
+	var response string
+	// Call the appropriate API based on the selected provider
+	if cfg.ModelProvider == "openai" {
+		if verbose {
+			fmt.Printf("Using OpenAI model: %s\n", cfg.OpenAIModel)
+		}
+		response, err = aico.AskOpenAI(openAIURL, cfg.OpenAIKey, cfg.OpenAIModel, cfg.OpenAITemperature, cfg.OpenAIMaxTokens, question, verbose)
+	} else { // anthropic
+		if verbose {
+			fmt.Printf("Using Anthropic model: %s\n", cfg.AnthropicModel)
+		}
+		response, err = aico.AskAnthropic(anthropicURL, cfg.AnthropicKey, cfg.AnthropicModel, cfg.AnthropicTemperature, cfg.AnthropicMaxTokens, question, verbose)
 	}
 
-	// Create a question for the OpenAI API based on the diff output
-	question := aico.CreateOpenAIQuestion(diffOutput, cfg.NumCandidates, japaneseOutput)
-	// Ask OpenAI for commit message suggestions
-	response, err := aico.AskOpenAI(openAIURL, cfg.OpenAIKey, cfg.OpenAIModel, cfg.OpenAITemperature, cfg.OpenAIMaxTokens, question, verbose)
 	if err != nil {
 		done <- true // Stop the spinner
-		fmt.Println("Error asking OpenAI:", err)
+		fmt.Printf("Error asking %s: %v\n", strings.Title(cfg.ModelProvider), err)
 		return
 	}
 
@@ -179,9 +229,9 @@ func main() {
 	done <- true
 
 	// Split the response into separate lines
-	messages, err := parseOpenAIResponse(response, verbose)
+	messages, err := parseModelResponse(response, verbose)
 	if err != nil {
-		fmt.Println("Error split the response:", err)
+		fmt.Println("Error parsing the response:", err)
 		return
 	}
 
