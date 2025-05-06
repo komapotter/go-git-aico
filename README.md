@@ -1,7 +1,7 @@
 # go-git-aico
 
 - Inspired by [git-aico](https://github.com/hirokidaichi/git-aico)
-- The majority of the code was written using [aider](https://github.com/paul-gauthier/aider)
+- The majority of the code was written using [aider](https://github.com/paul-gauthier/aider) and [cluade code](https://docs.anthropic.com/en/docs/claude-code/overview)
 
 #### Installation
 
