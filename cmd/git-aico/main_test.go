@@ -61,7 +61,7 @@ func TestSelectCommitMessage(t *testing.T) {
 	}
 }
 
-func TestParseOpenAIResponse(t *testing.T) {
+func TestParseModelResponse(t *testing.T) {
 	tests := []struct {
 		name         string
 		response     string
@@ -96,13 +96,13 @@ func TestParseOpenAIResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotMessages, err := parseOpenAIResponse(tt.response, false)
+			gotMessages, err := parseModelResponse(tt.response, false)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseOpenAIResponse() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("parseModelResponse() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !equalSlices(gotMessages, tt.wantMessages) {
-				t.Errorf("parseOpenAIResponse() = %v, want %v", gotMessages, tt.wantMessages)
+				t.Errorf("parseModelResponse() = %v, want %v", gotMessages, tt.wantMessages)
 			}
 		})
 	}
