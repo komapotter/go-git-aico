@@ -2,14 +2,13 @@ package aico
 
 import "fmt"
 
-// CreateOpenAIQuestion formats a question for the OpenAI API based on the git diff output.
-func CreateOpenAIQuestion(diffOutput string, numCandidates int, japaneseOutput bool) string {
+// CreateAIQuestion formats a question for AI API based on the git diff output.
+func CreateAIQuestion(diffOutput string, numCandidates int, japaneseOutput bool) string {
 	prompt := `
-Please generate %d appropriate commit message candidates based on the context.
+Please generate %d appropriate commit message candidates based on git diff.
 (Do NOT number at the beginning of the line)
 
-Here is a sample of commit messages for different scenarios.
-
+sample of commit messages:
 ---
 
 # Adding a new feature
@@ -43,21 +42,21 @@ Enhance user interface for mobile view
 Update comments in the routing module
 ---
 
-Output Format:
+output format:
 - Add diff loader module for handling Git diffs
 - Implement diff loading from file and Git in diffloader.ts
 - Create diffloader.ts to process and split Git diffs
 
+git diff:
 ---
 
 %s`
 	if japaneseOutput {
 		prompt = `
-以下の内容に基づいて、%d個の適切なコミットメッセージ候補を生成してください。
-（行の先頭に番号を付けないでください）
+git diffの内容に基づいて、%d個の適切なコミットメッセージ候補を日本語で生成してください。
+なお候補の先頭に1. 2. 3. などの番号は付けないでください。
 
-以下は、さまざまなシナリオのコミットメッセージのサンプルです。
-
+コミットメッセージのサンプル:
 ---
 
 # 新機能の追加
@@ -96,6 +95,7 @@ lodashをバージョン4.17.21に更新
 - diffloader.tsでファイルとGitからの差分の読み込みを実装
 - Gitの差分を処理し、分割するためのdiffloader.tsを作成
 
+git diff:
 ---
 
 %s`

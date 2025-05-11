@@ -22,7 +22,7 @@ type AnthropicMessage struct {
 }
 
 type AnthropicResponse struct {
-	Content struct {
+	Content []struct {
 		Type  string `json:"type"`
 		Text  string `json:"text"`
 	} `json:"content"`
@@ -73,8 +73,8 @@ func AskAnthropic(anthropicURL, anthropicKey, anthropicModel string, anthropicTe
 		return "", err
 	}
 
-	if apiResp.Content.Type == "text" {
-		return strings.TrimSpace(apiResp.Content.Text), nil
+	if len(apiResp.Content) > 0 && apiResp.Content[0].Type == "text" {
+		return strings.TrimSpace(apiResp.Content[0].Text), nil
 	}
 
 	return "", fmt.Errorf("no response from Anthropic")

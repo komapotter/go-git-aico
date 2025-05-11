@@ -45,10 +45,12 @@ func TestAskAnthropic(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		resp := `{
-			"content": {
-				"type": "text",
-				"text": "test response"
-			}
+			"content": [
+				{
+					"type": "text",
+					"text": "test response"
+				}
+			]
 		}`
 		w.Write([]byte(resp))
 	}))

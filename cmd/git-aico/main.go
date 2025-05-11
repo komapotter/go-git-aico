@@ -203,7 +203,7 @@ func main() {
 	go startSpinner(done)
 
 	// Create a question based on the diff output
-	question := aico.CreateOpenAIQuestion(diffOutput, cfg.NumCandidates, japaneseOutput)
+	question := aico.CreateAIQuestion(diffOutput, cfg.NumCandidates, japaneseOutput)
 
 	var response string
 	// Call the appropriate API based on the selected provider
