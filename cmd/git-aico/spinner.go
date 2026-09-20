@@ -83,7 +83,8 @@ func (s *spinner) loop() {
 		if s.color {
 			frame = cyanSeq + frame + resetSeq
 		}
-		fmt.Fprintf(s.w, "\r%s %s", s.label, frame)
+		// ⣾ Generating commit messages
+		fmt.Fprintf(s.w, "\r%s %s", frame, s.label)
 		i++
 		select {
 		case <-s.stopCh:

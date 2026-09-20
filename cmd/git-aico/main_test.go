@@ -140,17 +140,17 @@ func TestSpinnerFixedWidthFrames(t *testing.T) {
 	}
 }
 
-func TestSpinnerLayoutIsLabelThenFrame(t *testing.T) {
+func TestSpinnerLayoutIsFrameThenLabel(t *testing.T) {
 	out := runSpinner(t, true, 8*time.Millisecond, 40*time.Millisecond)
 	found := false
 	for _, frame := range visibleFrames(out) {
-		if !strings.HasPrefix(frame, spinnerLabel+" ") {
-			t.Errorf("frame %q does not start with %q", frame, spinnerLabel+" ")
+		glyph, ok := strings.CutSuffix(frame, " "+spinnerLabel)
+		if !ok {
+			t.Errorf("frame %q does not end with %q", frame, " "+spinnerLabel)
 			continue
 		}
-		got := strings.TrimPrefix(frame, spinnerLabel+" ")
-		if !containsFrame(got) {
-			t.Errorf("frame %q does not end with a gh braille glyph", frame)
+		if !containsFrame(glyph) {
+			t.Errorf("frame %q does not start with a gh braille glyph", frame)
 		}
 		found = true
 	}
