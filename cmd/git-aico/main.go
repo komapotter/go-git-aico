@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 
 	aico "github.com/komapotter/go-git-aico"
+	"github.com/komapotter/go-git-aico/internal/auth"
 )
 
 const (
@@ -25,7 +27,7 @@ type Config struct {
 
 	// General config
 	NumCandidates int    `envconfig:"NUM_CANDIDATES" default:"3"`
-	ModelProvider string `envconfig:"MODEL_PROVIDER" default:"openai"` // "openai" or "anthropic"
+	ModelProvider string `envconfig:"MODEL_PROVIDER"` // "openai" or "anthropic"; resolved with config/keyring if unset
 
 	// OpenAI config
 	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
@@ -108,6 +110,7 @@ func registerAppFlags(fs *flag.FlagSet, verbose, japanese, showHelp, showVersion
 func printHelp() {
 	helpText := `
 Usage: git-aico [options]
+       git-aico auth <command>
 
 Options:
   -h        Show this help message
@@ -115,18 +118,32 @@ Options:
   -v        Enable verbose output
   -j        Output commit message suggestions in Japanese
 
+Auth commands:
+  git-aico auth register   Store an API key in the OS keyring
+  git-aico auth remove     Remove a stored API key from the OS keyring
+  git-aico auth status     Show registered providers and the active provider
+  git-aico auth switch     Switch active provider (openai or anthropic)
+
+API key resolution order:
+  1. Environment variables (OPENAI_API_KEY / ANTHROPIC_API_KEY / MODEL_PROVIDER)
+  2. OS keyring + local config (~/.config/git-aico/config.yml)
+  3. Error suggesting: git-aico auth register
+
+Existing env-only workflows keep working without auth register.
+On macOS, the first Keychain access may show a permission dialog.
+
 Environment Variables:
-  MODEL_PROVIDER       Model provider to use: "openai" or "anthropic" (default: openai)
+  MODEL_PROVIDER       Model provider to use: "openai" or "anthropic" (default: openai, or local config)
   NUM_CANDIDATES       Number of commit message candidates to generate (default: 3)
 
   # OpenAI Configuration
-  OPENAI_API_KEY       Your OpenAI API key (required when MODEL_PROVIDER=openai)
+  OPENAI_API_KEY       Your OpenAI API key (required when MODEL_PROVIDER=openai unless registered)
   OPENAI_MODEL         OpenAI model to use (default: gpt-4o)
   OPENAI_TEMPERATURE   Sampling temperature (default: 0.1)
   OPENAI_MAX_TOKENS    Maximum number of tokens in the response (default: 450)
 
   # Anthropic Configuration
-  ANTHROPIC_API_KEY    Your Anthropic API key (required when MODEL_PROVIDER=anthropic)
+  ANTHROPIC_API_KEY    Your Anthropic API key (required when MODEL_PROVIDER=anthropic unless registered)
   ANTHROPIC_MODEL      Anthropic model to use (default: claude-3-haiku-20240307)
   ANTHROPIC_TEMPERATURE Sampling temperature (default: 0.1)
   ANTHROPIC_MAX_TOKENS Maximum number of tokens in the response (default: 450)
@@ -134,11 +151,49 @@ Environment Variables:
 	fmt.Println(helpText)
 }
 
-func main() {
+func isAuthCommand(args []string) bool {
+	return len(args) > 0 && args[0] == "auth"
+}
+
+// credentialStore is the secret backend used when generating commits.
+// Tests replace it with an in-memory store; production uses the OS keyring.
+var credentialStore auth.Store = auth.KeyringStore{}
+
+func loadAppConfig() (Config, error) {
 	var cfg Config
-	err := envconfig.Process("", &cfg)
+	if err := envconfig.Process("", &cfg); err != nil {
+		return cfg, fmt.Errorf("reading envvars: %w", err)
+	}
+
+	configPath, err := auth.DefaultConfigPath()
 	if err != nil {
-		fmt.Println("Error reading envvars", err)
+		return cfg, err
+	}
+	fileCfg, err := auth.LoadFileConfig(configPath)
+	if err != nil {
+		return cfg, err
+	}
+	creds, err := auth.Resolve(os.LookupEnv, fileCfg, credentialStore)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.OpenAIKey = creds.OpenAIKey
+	cfg.AnthropicKey = creds.AnthropicKey
+	cfg.ModelProvider = creds.ModelProvider
+	if err := creds.Validate(); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func main() {
+	if isAuthCommand(os.Args[1:]) {
+		if err := runAuth(os.Args[2:]); err != nil {
+			if !errors.Is(err, errAuthUsage) {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			}
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -155,20 +210,9 @@ func main() {
 		return
 	}
 
-	// Validate required API keys based on selected provider
-	switch cfg.ModelProvider {
-	case "openai":
-		if cfg.OpenAIKey == "" {
-			fmt.Println("Error: OPENAI_API_KEY is required when MODEL_PROVIDER=openai")
-			return
-		}
-	case "anthropic":
-		if cfg.AnthropicKey == "" {
-			fmt.Println("Error: ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic")
-			return
-		}
-	default:
-		fmt.Printf("Error: Unknown model provider: %s. Supported providers are 'openai' and 'anthropic'\n", cfg.ModelProvider)
+	cfg, err := loadAppConfig()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
 		return
 	}
 

@@ -21,22 +21,54 @@ This will install the `git-aico` executable in your `$GOPATH/bin` directory.
 6. Select the appropriate commit message by entering the number corresponding to the suggestion.
 7. The tool will automatically commit your staged changes with the selected commit message.
 
+### Authentication
+
+API keys can live in environment variables (CI and one-off overrides) or in the OS secure store:
+
+- macOS: Keychain
+- Linux: Secret Service (when available)
+- Windows: Credential Manager (Wincred)
+
+On macOS, the first Keychain access may show a permission dialog.
+
+```sh
+git-aico auth register              # choose openai or anthropic, then paste the key (no echo)
+git-aico auth register -p openai    # or pass the provider as a flag / argument
+git-aico auth status                # shows registered providers and the active one (never prints the key)
+git-aico auth switch anthropic      # openai or anthropic only
+git-aico auth remove -p openai
+```
+
+`login` / `logout` are not used; the commands are **register** / **remove** / **status** / **switch**.
+
+Non-secret settings (the active provider) are stored in `$XDG_CONFIG_HOME/git-aico/config.yml`, defaulting to `~/.config/git-aico/config.yml` (on Windows, `%AppData%\git-aico\config.yml`). API keys are never written to this file.
+
+### Credential resolution order
+
+When generating a commit message, credentials are resolved in this order:
+
+1. Environment variables win if set (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `MODEL_PROVIDER`)
+2. Otherwise the OS keyring plus local config
+3. Otherwise an error suggesting `git-aico auth register`
+
+Existing env-only workflows keep working without running `auth register`.
+
 ### Environment Variables
 
-To use this tool, you need to set the following environment variables:
+These remain optional when the matching key is registered in the OS keyring.
 
 #### General Configuration
-- `MODEL_PROVIDER`: The AI provider to use: "openai" or "anthropic" (default: openai)
+- `MODEL_PROVIDER`: The AI provider to use: "openai" or "anthropic" (default: openai, or the value from local config)
 - `NUM_CANDIDATES`: The number of commit message candidates to generate (default: 3)
 
 #### OpenAI Configuration (when MODEL_PROVIDER=openai)
-- `OPENAI_API_KEY`: Your OpenAI API key (required when using OpenAI)
+- `OPENAI_API_KEY`: Your OpenAI API key (required when using OpenAI unless registered via `git-aico auth register`)
 - `OPENAI_MODEL`: The OpenAI model to use (default: gpt-4o)
 - `OPENAI_TEMPERATURE`: The OpenAI temperature parameter (default: 0.1)
 - `OPENAI_MAX_TOKENS`: The maximum number of tokens for OpenAI (default: 450)
 
 #### Anthropic Configuration (when MODEL_PROVIDER=anthropic)
-- `ANTHROPIC_API_KEY`: Your Anthropic API key (required when using Anthropic)
+- `ANTHROPIC_API_KEY`: Your Anthropic API key (required when using Anthropic unless registered via `git-aico auth register`)
 - `ANTHROPIC_MODEL`: The Anthropic model to use (default: claude-3-haiku-20240307)
 - `ANTHROPIC_TEMPERATURE`: The Anthropic temperature parameter (default: 0.1)
 - `ANTHROPIC_MAX_TOKENS`: The maximum number of tokens for Anthropic (default: 450)
