@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"github.com/briandowns/spinner"
 )
 
 func TestSelectCommitMessage(t *testing.T) {
@@ -111,82 +112,40 @@ func TestParseModelResponse(t *testing.T) {
 	}
 }
 
-func TestSpinnerUsesGhBrailleFrames(t *testing.T) {
-	out := runSpinner(t, true, 5*time.Millisecond, 80*time.Millisecond)
-	for _, frame := range ghSpinnerFrames {
-		if !strings.Contains(out, frame) {
-			t.Errorf("output missing gh frame %q: %q", frame, out)
-		}
+func TestSpinnerUsesBriandownsCharSet11(t *testing.T) {
+	want := []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"}
+	if !equalSlices(spinner.CharSets[11], want) {
+		t.Fatalf("spinner.CharSets[11] = %q, want %q", spinner.CharSets[11], want)
 	}
-	if strings.Contains(out, "|") || strings.Contains(out, "/") || strings.Contains(out, "-") {
-		t.Errorf("output still looks like the ASCII spinner: %q", out)
+	sp := newSpinner(io.Discard, true)
+	if sp.inner.Delay != ghSpinnerInterval {
+		t.Fatalf("Delay = %v, want %v", sp.inner.Delay, ghSpinnerInterval)
 	}
-	if strings.Contains(out, "....") {
-		t.Errorf("output has growing dots: %q", out)
+	if !sp.inner.HideCursor {
+		t.Fatal("HideCursor = false, want true")
 	}
 }
 
 func TestSpinnerFixedWidthFrames(t *testing.T) {
-	out := runSpinner(t, true, 8*time.Millisecond, 80*time.Millisecond)
-	widths := visibleFrameWidths(out)
-	if len(widths) < 2 {
-		t.Fatalf("expected multiple frames, got %v from %q", widths, out)
-	}
-	want := widths[0]
-	for i, w := range widths {
-		if w != want {
-			t.Fatalf("frame %d width %d != %d (output %q)", i, w, want, out)
+	for i, frame := range spinner.CharSets[11] {
+		if n := utf8.RuneCountInString(frame); n != 1 {
+			t.Fatalf("CharSets[11][%d] = %q has width %d, want 1", i, frame, n)
 		}
 	}
 }
 
 func TestSpinnerLayoutIsFrameThenLabel(t *testing.T) {
-	out := runSpinner(t, true, 8*time.Millisecond, 40*time.Millisecond)
-	found := false
-	for _, frame := range visibleFrames(out) {
-		glyph, ok := strings.CutSuffix(frame, " "+spinnerLabel)
-		if !ok {
-			t.Errorf("frame %q does not end with %q", frame, " "+spinnerLabel)
-			continue
-		}
-		if !containsFrame(glyph) {
-			t.Errorf("frame %q does not start with a gh braille glyph", frame)
-		}
-		found = true
+	sp := newSpinner(io.Discard, true)
+	if sp.inner.Prefix != "" {
+		t.Fatalf("Prefix = %q, want empty so the braille glyph comes first", sp.inner.Prefix)
 	}
-	if !found {
-		t.Fatalf("no visible frames in %q", out)
-	}
-}
-
-func TestSpinnerStopClearsLineAndShowsCursor(t *testing.T) {
-	var buf bytes.Buffer
-	sp := testSpinner(&buf, true, 8*time.Millisecond)
-	sp.start()
-	time.Sleep(20 * time.Millisecond)
-	sp.stop()
-
-	out := buf.String()
-	if !strings.Contains(out, hideCursorSeq) {
-		t.Errorf("start did not hide cursor: %q", out)
-	}
-	if !strings.Contains(out, showCursorSeq) {
-		t.Errorf("stop did not restore cursor: %q", out)
-	}
-	if !strings.Contains(out, clearLineSeq) {
-		t.Errorf("stop did not clear the line: %q", out)
-	}
-	lastHide := strings.LastIndex(out, hideCursorSeq)
-	lastShow := strings.LastIndex(out, showCursorSeq)
-	lastClear := strings.LastIndex(out, clearLineSeq)
-	if lastShow < lastHide || lastClear < lastShow {
-		t.Errorf("expected hide, then frames, then show+clear; got %q", out)
+	if sp.inner.Suffix != " "+spinnerLabel {
+		t.Fatalf("Suffix = %q, want %q", sp.inner.Suffix, " "+spinnerLabel)
 	}
 }
 
 func TestSpinnerStopIdempotent(t *testing.T) {
-	var buf bytes.Buffer
-	sp := testSpinner(&buf, true, 8*time.Millisecond)
+	sp := newSpinner(io.Discard, true)
 	sp.start()
 	time.Sleep(15 * time.Millisecond)
 	sp.stop()
@@ -198,7 +157,7 @@ func TestSpinnerStopIdempotent(t *testing.T) {
 
 func TestSpinnerNoAnimationWhenDisabled(t *testing.T) {
 	var buf bytes.Buffer
-	sp := testSpinner(&buf, false, 8*time.Millisecond)
+	sp := newSpinner(&buf, false)
 	sp.start()
 	time.Sleep(20 * time.Millisecond)
 	sp.stop()
@@ -217,60 +176,6 @@ func TestIsCharDevicePipe(t *testing.T) {
 	if isCharDevice(w) || isCharDevice(r) {
 		t.Fatal("pipe should not be treated as a TTY")
 	}
-}
-
-func testSpinner(w io.Writer, enabled bool, interval time.Duration) *spinner {
-	sp := newSpinner(w, enabled)
-	sp.interval = interval
-	sp.color = false
-	return sp
-}
-
-func runSpinner(t *testing.T, enabled bool, interval, wait time.Duration) string {
-	t.Helper()
-	var buf bytes.Buffer
-	sp := testSpinner(&buf, enabled, interval)
-	sp.start()
-	time.Sleep(wait)
-	sp.stop()
-	return buf.String()
-}
-
-var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
-
-func stripANSI(s string) string {
-	return ansiSeq.ReplaceAllString(s, "")
-}
-
-func visibleFrames(output string) []string {
-	plain := stripANSI(output)
-	plain = strings.ReplaceAll(plain, "\r", "\n")
-	var frames []string
-	for _, line := range strings.Split(plain, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		frames = append(frames, line)
-	}
-	return frames
-}
-
-func visibleFrameWidths(output string) []int {
-	var widths []int
-	for _, frame := range visibleFrames(output) {
-		widths = append(widths, utf8.RuneCountInString(frame))
-	}
-	return widths
-}
-
-func containsFrame(s string) bool {
-	for _, frame := range ghSpinnerFrames {
-		if strings.Contains(s, frame) {
-			return true
-		}
-	}
-	return false
 }
 
 // equalSlices checks if two slices of strings are equal
