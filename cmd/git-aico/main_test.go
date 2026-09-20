@@ -36,6 +36,17 @@ func TestPrintHelpDocumentsVersionFlag(t *testing.T) {
 	if !strings.Contains(out, "-v") || !strings.Contains(out, "Enable verbose output") {
 		t.Fatalf("help missing -v documentation:\n%s", out)
 	}
+	for _, cmd := range []string{"auth register", "auth remove", "auth status", "auth switch"} {
+		if !strings.Contains(out, cmd) {
+			t.Fatalf("help missing %s:\n%s", cmd, out)
+		}
+	}
+	if !strings.Contains(out, "Environment variables") && !strings.Contains(out, "OPENAI_API_KEY") {
+		t.Fatalf("help missing env documentation:\n%s", out)
+	}
+	if !strings.Contains(out, "git-aico auth register") {
+		t.Fatalf("help missing resolution fallback:\n%s", out)
+	}
 }
 
 func TestVersionFlagDoesNotConflictWithVerbose(t *testing.T) {
