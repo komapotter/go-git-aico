@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.920.1](https://github.com/komapotter/go-git-aico/compare/v2026.920.0...v2026.920.1) - 2026-09-20
+
+### Other Changes
+- Drop standalone release.yml; keep tagpr for tags and changelog by @komapotter in https://github.com/komapotter/go-git-aico/pull/25
+
 ## [v2026.920.0](https://github.com/komapotter/go-git-aico/compare/v0.3.1...v2026.920.0) - 2026-09-20
 
 ### Other Changes
