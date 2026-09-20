@@ -31,7 +31,8 @@ type Credentials struct {
 
 // Resolve merges environment variables, the local config file, and the keyring.
 // Priority: env (if set) > keyring/config > empty/default.
-// A keyring failure is only returned when it affects the active provider.
+// Keyring lookup errors are stored on Credentials; Validate attaches them
+// to MissingKeyError so callers still get the auth register hint.
 func Resolve(getenv EnvLookup, file FileConfig, store Store) (Credentials, error) {
 	if getenv == nil {
 		getenv = os.LookupEnv
