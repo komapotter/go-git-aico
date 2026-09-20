@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"io"
 	"os"
 	"strings"
@@ -11,6 +12,64 @@ import (
 
 	"github.com/briandowns/spinner"
 )
+
+func TestPrintHelpDocumentsVersionFlag(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() failed with error: %v", err)
+	}
+	orig := os.Stdout
+	os.Stdout = w
+	printHelp()
+	w.Close()
+	os.Stdout = orig
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("reading help output: %v", err)
+	}
+	r.Close()
+	out := buf.String()
+	if !strings.Contains(out, "-V") || !strings.Contains(out, "Print version and exit") {
+		t.Fatalf("help missing -V documentation:\n%s", out)
+	}
+	if !strings.Contains(out, "-v") || !strings.Contains(out, "Enable verbose output") {
+		t.Fatalf("help missing -v documentation:\n%s", out)
+	}
+}
+
+func TestVersionFlagDoesNotConflictWithVerbose(t *testing.T) {
+	parse := func(args ...string) (verbose, japanese, help, version bool) {
+		fs := flag.NewFlagSet("git-aico", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		registerAppFlags(fs, &verbose, &japanese, &help, &version)
+		if err := fs.Parse(args); err != nil {
+			t.Fatalf("Parse(%q) error: %v", args, err)
+		}
+		return
+	}
+
+	verbose, _, _, version := parse("-V")
+	if !version {
+		t.Fatal("-V should set the version flag")
+	}
+	if verbose {
+		t.Fatal("-V must not set verbose (-v)")
+	}
+
+	verbose, _, _, version = parse("-v")
+	if !verbose {
+		t.Fatal("-v should set verbose")
+	}
+	if version {
+		t.Fatal("-v must not set the version flag (-V)")
+	}
+
+	verbose, japanese, help, version := parse("-v", "-j", "-V")
+	if !verbose || !japanese || help || !version {
+		t.Fatalf("-v -j -V = verbose=%v japanese=%v help=%v version=%v", verbose, japanese, help, version)
+	}
+}
 
 func TestSelectCommitMessage(t *testing.T) {
 	suggestions := []string{

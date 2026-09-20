@@ -98,12 +98,20 @@ func parseModelResponse(response string, verbose bool) ([]string, error) {
 	return messages, nil
 }
 
+func registerAppFlags(fs *flag.FlagSet, verbose, japanese, showHelp, showVersion *bool) {
+	fs.BoolVar(verbose, "v", false, "Enable verbose output")
+	fs.BoolVar(japanese, "j", false, "Output commit message suggestions in Japanese")
+	fs.BoolVar(showHelp, "h", false, "Show this help message")
+	fs.BoolVar(showVersion, "V", false, "Print version and exit")
+}
+
 func printHelp() {
 	helpText := `
 Usage: git-aico [options]
 
 Options:
   -h        Show this help message
+  -V        Print version and exit
   -v        Enable verbose output
   -j        Output commit message suggestions in Japanese
 
@@ -134,14 +142,16 @@ func main() {
 		return
 	}
 
-	flag.BoolVar(&verbose, "v", false, "Enable verbose output")
-	flag.BoolVar(&japaneseOutput, "j", false, "Output commit message suggestions in Japanese")
-	showHelp := flag.Bool("h", false, "Show this help message")
-
+	var showHelp, showVersion bool
+	registerAppFlags(flag.CommandLine, &verbose, &japaneseOutput, &showHelp, &showVersion)
 	flag.Parse()
 
-	if *showHelp {
+	if showHelp {
 		printHelp()
+		return
+	}
+	if showVersion {
+		fmt.Println(versionString())
 		return
 	}
 
