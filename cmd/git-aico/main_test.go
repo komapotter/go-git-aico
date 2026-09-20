@@ -6,6 +6,10 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
+	"unicode/utf8"
+
+	"github.com/briandowns/spinner"
 )
 
 func TestSelectCommitMessage(t *testing.T) {
@@ -105,6 +109,72 @@ func TestParseModelResponse(t *testing.T) {
 				t.Errorf("parseModelResponse() = %v, want %v", gotMessages, tt.wantMessages)
 			}
 		})
+	}
+}
+
+func TestSpinnerUsesBriandownsCharSet11(t *testing.T) {
+	want := []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"}
+	if !equalSlices(spinner.CharSets[11], want) {
+		t.Fatalf("spinner.CharSets[11] = %q, want %q", spinner.CharSets[11], want)
+	}
+	sp := newSpinner(io.Discard, true)
+	if sp.inner.Delay != ghSpinnerInterval {
+		t.Fatalf("Delay = %v, want %v", sp.inner.Delay, ghSpinnerInterval)
+	}
+	if !sp.inner.HideCursor {
+		t.Fatal("HideCursor = false, want true")
+	}
+}
+
+func TestSpinnerFixedWidthFrames(t *testing.T) {
+	for i, frame := range spinner.CharSets[11] {
+		if n := utf8.RuneCountInString(frame); n != 1 {
+			t.Fatalf("CharSets[11][%d] = %q has width %d, want 1", i, frame, n)
+		}
+	}
+}
+
+func TestSpinnerLayoutIsFrameThenLabel(t *testing.T) {
+	sp := newSpinner(io.Discard, true)
+	if sp.inner.Prefix != "" {
+		t.Fatalf("Prefix = %q, want empty so the braille glyph comes first", sp.inner.Prefix)
+	}
+	if sp.inner.Suffix != " "+spinnerLabel {
+		t.Fatalf("Suffix = %q, want %q", sp.inner.Suffix, " "+spinnerLabel)
+	}
+}
+
+func TestSpinnerStopIdempotent(t *testing.T) {
+	sp := newSpinner(io.Discard, true)
+	sp.start()
+	time.Sleep(15 * time.Millisecond)
+	sp.stop()
+	sp.stop()
+
+	idle := newSpinner(io.Discard, true)
+	idle.stop()
+}
+
+func TestSpinnerNoAnimationWhenDisabled(t *testing.T) {
+	var buf bytes.Buffer
+	sp := newSpinner(&buf, false)
+	sp.start()
+	time.Sleep(20 * time.Millisecond)
+	sp.stop()
+	if buf.Len() != 0 {
+		t.Fatalf("disabled spinner wrote %q", buf.String())
+	}
+}
+
+func TestIsCharDevicePipe(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	defer r.Close()
+	defer w.Close()
+	if isCharDevice(w) || isCharDevice(r) {
+		t.Fatal("pipe should not be treated as a TTY")
 	}
 }
 

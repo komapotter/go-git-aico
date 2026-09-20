@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/kelseyhightower/envconfig"
 
@@ -21,18 +20,18 @@ const (
 
 type Config struct {
 	// API Keys
-	OpenAIKey     string `envconfig:"OPENAI_API_KEY"`
-	AnthropicKey  string `envconfig:"ANTHROPIC_API_KEY"`
-	
+	OpenAIKey    string `envconfig:"OPENAI_API_KEY"`
+	AnthropicKey string `envconfig:"ANTHROPIC_API_KEY"`
+
 	// General config
-	NumCandidates int     `envconfig:"NUM_CANDIDATES" default:"3"`
-	ModelProvider string  `envconfig:"MODEL_PROVIDER" default:"openai"` // "openai" or "anthropic"
-	
+	NumCandidates int    `envconfig:"NUM_CANDIDATES" default:"3"`
+	ModelProvider string `envconfig:"MODEL_PROVIDER" default:"openai"` // "openai" or "anthropic"
+
 	// OpenAI config
 	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
 	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
-	
+
 	// Anthropic config
 	AnthropicModel       string  `envconfig:"ANTHROPIC_MODEL" default:"claude-3-haiku-20240307"`
 	AnthropicTemperature float64 `envconfig:"ANTHROPIC_TEMPERATURE" default:"0.1"`
@@ -68,29 +67,6 @@ func selectCommitMessage(suggestions []string) (string, error) {
 			continue
 		}
 		return suggestions[choice-1], nil
-	}
-}
-
-// startSpinner starts a simple console spinner
-func startSpinner(done chan bool) {
-	spinnerChars := `|/-\`
-	i := 0
-	dots := ""
-	lastDotTime := time.Now()
-	for {
-		select {
-		case <-done:
-			fmt.Printf("\r\033[K") // Clear the entire line when done
-			return
-		default:
-			fmt.Printf("\r  %c %s%s", spinnerChars[i%len(spinnerChars)], "Generating commit messages ", dots)
-			if time.Since(lastDotTime) >= time.Second {
-				dots += "."
-				lastDotTime = time.Now()
-			}
-			i++
-			time.Sleep(100 * time.Millisecond)
-		}
 	}
 }
 
@@ -198,9 +174,17 @@ func main() {
 		return
 	}
 
-	// Start the spinner
-	done := make(chan bool)
-	go startSpinner(done)
+	if verbose {
+		if cfg.ModelProvider == "openai" {
+			fmt.Printf("Using OpenAI model: %s\n", cfg.OpenAIModel)
+		} else {
+			fmt.Printf("Using Anthropic model: %s\n", cfg.AnthropicModel)
+		}
+	}
+
+	sp := newSpinner(os.Stderr, stdoutAndStderrAreTTY())
+	sp.start()
+	defer sp.stop()
 
 	// Create a question based on the diff output
 	question := aico.CreateAIQuestion(diffOutput, cfg.NumCandidates, japaneseOutput)
@@ -208,25 +192,16 @@ func main() {
 	var response string
 	// Call the appropriate API based on the selected provider
 	if cfg.ModelProvider == "openai" {
-		if verbose {
-			fmt.Printf("Using OpenAI model: %s\n", cfg.OpenAIModel)
-		}
 		response, err = aico.AskOpenAI(openAIURL, cfg.OpenAIKey, cfg.OpenAIModel, cfg.OpenAITemperature, cfg.OpenAIMaxTokens, question, verbose)
 	} else { // anthropic
-		if verbose {
-			fmt.Printf("Using Anthropic model: %s\n", cfg.AnthropicModel)
-		}
 		response, err = aico.AskAnthropic(anthropicURL, cfg.AnthropicKey, cfg.AnthropicModel, cfg.AnthropicTemperature, cfg.AnthropicMaxTokens, question, verbose)
 	}
+	sp.stop()
 
 	if err != nil {
-		done <- true // Stop the spinner
 		fmt.Printf("Error asking %s: %v\n", strings.Title(cfg.ModelProvider), err)
 		return
 	}
-
-	// Stop the spinner
-	done <- true
 
 	// Split the response into separate lines
 	messages, err := parseModelResponse(response, verbose)
