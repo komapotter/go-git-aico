@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.3.4](https://github.com/komapotter/go-git-aico/compare/v0.3.3...v0.3.4) - 2026-09-20
+
+### Other Changes
+- Add OS keyring-backed auth register/remove/status/switch by @komapotter in https://github.com/komapotter/go-git-aico/pull/34
+
 ## [v0.3.3](https://github.com/komapotter/go-git-aico/compare/v0.3.2...v0.3.3) - 2026-09-20
 
 ### Other Changes
