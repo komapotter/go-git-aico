@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.3.3](https://github.com/komapotter/go-git-aico/compare/v0.3.2...v0.3.3) - 2026-09-20
+
+### Other Changes
+- Add git-aico -V to print version by @komapotter in https://github.com/komapotter/go-git-aico/pull/31
+
 ## [v0.3.2](https://github.com/komapotter/go-git-aico/compare/v0.3.1...v0.3.2) - 2026-09-20
 
 ### Other Changes
