@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
+	"unicode/utf8"
 )
 
 func TestSelectCommitMessage(t *testing.T) {
@@ -106,6 +109,168 @@ func TestParseModelResponse(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSpinnerUsesGhBrailleFrames(t *testing.T) {
+	out := runSpinner(t, true, 5*time.Millisecond, 80*time.Millisecond)
+	for _, frame := range ghSpinnerFrames {
+		if !strings.Contains(out, frame) {
+			t.Errorf("output missing gh frame %q: %q", frame, out)
+		}
+	}
+	if strings.Contains(out, "|") || strings.Contains(out, "/") || strings.Contains(out, "-") {
+		t.Errorf("output still looks like the ASCII spinner: %q", out)
+	}
+	if strings.Contains(out, "....") {
+		t.Errorf("output has growing dots: %q", out)
+	}
+}
+
+func TestSpinnerFixedWidthFrames(t *testing.T) {
+	out := runSpinner(t, true, 8*time.Millisecond, 80*time.Millisecond)
+	widths := visibleFrameWidths(out)
+	if len(widths) < 2 {
+		t.Fatalf("expected multiple frames, got %v from %q", widths, out)
+	}
+	want := widths[0]
+	for i, w := range widths {
+		if w != want {
+			t.Fatalf("frame %d width %d != %d (output %q)", i, w, want, out)
+		}
+	}
+}
+
+func TestSpinnerLayoutIsLabelThenFrame(t *testing.T) {
+	out := runSpinner(t, true, 8*time.Millisecond, 40*time.Millisecond)
+	found := false
+	for _, frame := range visibleFrames(out) {
+		if !strings.HasPrefix(frame, spinnerLabel+" ") {
+			t.Errorf("frame %q does not start with %q", frame, spinnerLabel+" ")
+			continue
+		}
+		got := strings.TrimPrefix(frame, spinnerLabel+" ")
+		if !containsFrame(got) {
+			t.Errorf("frame %q does not end with a gh braille glyph", frame)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("no visible frames in %q", out)
+	}
+}
+
+func TestSpinnerStopClearsLineAndShowsCursor(t *testing.T) {
+	var buf bytes.Buffer
+	sp := testSpinner(&buf, true, 8*time.Millisecond)
+	sp.start()
+	time.Sleep(20 * time.Millisecond)
+	sp.stop()
+
+	out := buf.String()
+	if !strings.Contains(out, hideCursorSeq) {
+		t.Errorf("start did not hide cursor: %q", out)
+	}
+	if !strings.Contains(out, showCursorSeq) {
+		t.Errorf("stop did not restore cursor: %q", out)
+	}
+	if !strings.Contains(out, clearLineSeq) {
+		t.Errorf("stop did not clear the line: %q", out)
+	}
+	lastHide := strings.LastIndex(out, hideCursorSeq)
+	lastShow := strings.LastIndex(out, showCursorSeq)
+	lastClear := strings.LastIndex(out, clearLineSeq)
+	if lastShow < lastHide || lastClear < lastShow {
+		t.Errorf("expected hide, then frames, then show+clear; got %q", out)
+	}
+}
+
+func TestSpinnerStopIdempotent(t *testing.T) {
+	var buf bytes.Buffer
+	sp := testSpinner(&buf, true, 8*time.Millisecond)
+	sp.start()
+	time.Sleep(15 * time.Millisecond)
+	sp.stop()
+	sp.stop()
+
+	idle := newSpinner(io.Discard, true)
+	idle.stop()
+}
+
+func TestSpinnerNoAnimationWhenDisabled(t *testing.T) {
+	var buf bytes.Buffer
+	sp := testSpinner(&buf, false, 8*time.Millisecond)
+	sp.start()
+	time.Sleep(20 * time.Millisecond)
+	sp.stop()
+	if buf.Len() != 0 {
+		t.Fatalf("disabled spinner wrote %q", buf.String())
+	}
+}
+
+func TestIsCharDevicePipe(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	defer r.Close()
+	defer w.Close()
+	if isCharDevice(w) || isCharDevice(r) {
+		t.Fatal("pipe should not be treated as a TTY")
+	}
+}
+
+func testSpinner(w io.Writer, enabled bool, interval time.Duration) *spinner {
+	sp := newSpinner(w, enabled)
+	sp.interval = interval
+	sp.color = false
+	return sp
+}
+
+func runSpinner(t *testing.T, enabled bool, interval, wait time.Duration) string {
+	t.Helper()
+	var buf bytes.Buffer
+	sp := testSpinner(&buf, enabled, interval)
+	sp.start()
+	time.Sleep(wait)
+	sp.stop()
+	return buf.String()
+}
+
+var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
+
+func stripANSI(s string) string {
+	return ansiSeq.ReplaceAllString(s, "")
+}
+
+func visibleFrames(output string) []string {
+	plain := stripANSI(output)
+	plain = strings.ReplaceAll(plain, "\r", "\n")
+	var frames []string
+	for _, line := range strings.Split(plain, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		frames = append(frames, line)
+	}
+	return frames
+}
+
+func visibleFrameWidths(output string) []int {
+	var widths []int
+	for _, frame := range visibleFrames(output) {
+		widths = append(widths, utf8.RuneCountInString(frame))
+	}
+	return widths
+}
+
+func containsFrame(s string) bool {
+	for _, frame := range ghSpinnerFrames {
+		if strings.Contains(s, frame) {
+			return true
+		}
+	}
+	return false
 }
 
 // equalSlices checks if two slices of strings are equal
