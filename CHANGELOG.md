@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.3.2](https://github.com/komapotter/go-git-aico/compare/v0.3.1...v0.3.2) - 2026-09-20
+
+### Other Changes
+- Add a gh-like braille spinner while generating commit messages by @komapotter in https://github.com/komapotter/go-git-aico/pull/20
+- Add Songmu/tagpr git tagging automation by @komapotter in https://github.com/komapotter/go-git-aico/pull/22
+- Release for v2026.920.0 by @github-actions[bot] in https://github.com/komapotter/go-git-aico/pull/23
+- Drop standalone release.yml; keep tagpr for tags and changelog by @komapotter in https://github.com/komapotter/go-git-aico/pull/25
+- Release for v2026.920.1 by @github-actions[bot] in https://github.com/komapotter/go-git-aico/pull/26
+- Switch tagpr from CalVer to semver for go install @latest by @komapotter in https://github.com/komapotter/go-git-aico/pull/28
+
 ## [v2026.920.1](https://github.com/komapotter/go-git-aico/compare/v2026.920.0...v2026.920.1) - 2026-09-20
 
 ### Other Changes
