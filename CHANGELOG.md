@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.3.5](https://github.com/komapotter/go-git-aico/compare/v0.3.4...v0.3.5) - 2026-10-23
+
+### Other Changes
+- go.mod の Go バージョンを 1.26.10 に上げ、toolchain を go1.27.3 にする by @komapotter in https://github.com/komapotter/go-git-aico/pull/37
+
 ## [v0.3.4](https://github.com/komapotter/go-git-aico/compare/v0.3.3...v0.3.4) - 2026-09-20
 
 ### Other Changes
