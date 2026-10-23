@@ -1,6 +1,8 @@
 module github.com/komapotter/go-git-aico
 
-go 1.22.2
+go 1.26.10
+
+toolchain go1.27.3
 
 require (
 	github.com/briandowns/spinner v1.23.2
