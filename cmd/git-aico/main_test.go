@@ -48,30 +48,65 @@ func TestPrintHelpDocumentsVersionFlag(t *testing.T) {
 	if !strings.Contains(out, "gpt-6-luna") {
 		t.Fatalf("help missing OpenAI default model gpt-6-luna:\n%s", out)
 	}
+	if !strings.Contains(out, "OPENAI_REASONING_EFFORT") {
+		t.Fatalf("help missing OPENAI_REASONING_EFFORT:\n%s", out)
+	}
 	if !strings.Contains(out, "git-aico auth register") {
 		t.Fatalf("help missing resolution fallback:\n%s", out)
 	}
 }
 
 func TestOpenAIModelDefaultIsGPT6Luna(t *testing.T) {
-	orig, had := os.LookupEnv("OPENAI_MODEL")
-	if err := os.Unsetenv("OPENAI_MODEL"); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if had {
-			os.Setenv("OPENAI_MODEL", orig)
-		} else {
-			os.Unsetenv("OPENAI_MODEL")
+	for _, key := range []string{"OPENAI_MODEL", "OPENAI_REASONING_EFFORT", "OPENAI_TEMPERATURE", "OPENAI_MAX_TOKENS"} {
+		orig, had := os.LookupEnv(key)
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatal(err)
 		}
-	})
+		t.Cleanup(func() {
+			if had {
+				os.Setenv(key, orig)
+			} else {
+				os.Unsetenv(key)
+			}
+		})
+	}
 
 	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
 		t.Fatalf("envconfig.Process: %v", err)
 	}
+	if err := validateOpenAIConfig(&cfg); err != nil {
+		t.Fatalf("validateOpenAIConfig: %v", err)
+	}
 	if cfg.OpenAIModel != "gpt-6-luna" {
 		t.Fatalf("OPENAI_MODEL default = %q, want gpt-6-luna", cfg.OpenAIModel)
+	}
+	if cfg.OpenAIReasoningEffort != "none" {
+		t.Fatalf("OPENAI_REASONING_EFFORT default = %q, want none", cfg.OpenAIReasoningEffort)
+	}
+	if cfg.OpenAITemperature != 0.1 {
+		t.Fatalf("OPENAI_TEMPERATURE default = %v, want 0.1", cfg.OpenAITemperature)
+	}
+	if cfg.OpenAIMaxTokens != 450 {
+		t.Fatalf("OPENAI_MAX_TOKENS default = %d, want 450", cfg.OpenAIMaxTokens)
+	}
+}
+
+func TestInvalidOpenAIReasoningEffort(t *testing.T) {
+	t.Setenv("OPENAI_REASONING_EFFORT", "minimal")
+	var cfg Config
+	if err := envconfig.Process("", &cfg); err != nil {
+		t.Fatalf("envconfig.Process: %v", err)
+	}
+	err := validateOpenAIConfig(&cfg)
+	if err == nil {
+		t.Fatal("expected invalid OPENAI_REASONING_EFFORT to error")
+	}
+	if !strings.Contains(err.Error(), "OPENAI_REASONING_EFFORT") {
+		t.Fatalf("error = %v, want mention of OPENAI_REASONING_EFFORT", err)
+	}
+	if !strings.Contains(err.Error(), "minimal") {
+		t.Fatalf("error = %v, want the invalid value", err)
 	}
 }
 

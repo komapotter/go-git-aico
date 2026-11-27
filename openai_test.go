@@ -39,8 +39,8 @@ func TestAskOpenAI(t *testing.T) {
 		if reqBody.Model != "gpt-6-luna" {
 			t.Errorf("Expected model to be gpt-6-luna, got %s", reqBody.Model)
 		}
-		if reqBody.Temperature != 0.2 {
-			t.Errorf("Expected temperature to be 0.2, got %f", reqBody.Temperature)
+		if reqBody.Temperature == nil || *reqBody.Temperature != 0.2 {
+			t.Errorf("Expected temperature to be 0.2, got %v", reqBody.Temperature)
 		}
 		if reqBody.MaxCompletionTokens != 300 {
 			t.Errorf("Expected max_completion_tokens to be 300, got %d", reqBody.MaxCompletionTokens)
@@ -73,6 +73,7 @@ func TestAskOpenAI(t *testing.T) {
 		server.URL,
 		"test-key",
 		"gpt-6-luna",
+		"none",
 		0.2,
 		300,
 		"test question",
@@ -97,6 +98,7 @@ func TestAskOpenAIError(t *testing.T) {
 		server.URL,
 		"test-key",
 		"gpt-6-luna",
+		"none",
 		0.2,
 		300,
 		"test question",
@@ -107,24 +109,133 @@ func TestAskOpenAIError(t *testing.T) {
 	}
 }
 
-func TestOpenAIRequestJSON(t *testing.T) {
-	payload, err := json.Marshal(OpenAIRequest{
-		Model:               "gpt-6-luna",
-		Messages:            []OpenAIMessage{{Role: "user", Content: "hello"}},
-		MaxCompletionTokens: 450,
-		ReasoningEffort:     openAIChatCompletionsReasoningEffort,
-		Temperature:         0.1,
-	})
+func TestOpenAIRequestPayloads(t *testing.T) {
+	tests := []struct {
+		name       string
+		model      string
+		effort     string
+		temp       float64
+		wantEffort string
+		wantTemp   *float64
+	}{
+		{
+			name:       "default luna none+temp",
+			model:      "gpt-6-luna",
+			effort:     DefaultOpenAIReasoningEffort,
+			temp:       0.1,
+			wantEffort: "none",
+			wantTemp:   floatPtr(0.1),
+		},
+		{
+			name:       "luna low omits temperature",
+			model:      "gpt-6-luna",
+			effort:     "low",
+			temp:       0.1,
+			wantEffort: "low",
+			wantTemp:   nil,
+		},
+		{
+			name:       "gpt-4o omits reasoning_effort",
+			model:      "gpt-4o",
+			effort:     "none",
+			temp:       0.1,
+			wantEffort: "",
+			wantTemp:   floatPtr(0.1),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			payload, err := json.Marshal(buildOpenAIRequest(tt.model, "hello", tt.effort, tt.temp, 450))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var keys map[string]json.RawMessage
+			if err := json.Unmarshal(payload, &keys); err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := keys["max_tokens"]; ok {
+				t.Errorf("payload must not include max_tokens: %s", payload)
+			}
+
+			gotEffort, hasEffort := keys["reasoning_effort"]
+			if tt.wantEffort == "" {
+				if hasEffort {
+					t.Errorf("reasoning_effort = %s, want omitted", gotEffort)
+				}
+			} else {
+				if !hasEffort {
+					t.Fatal("reasoning_effort missing")
+				}
+				var v string
+				if err := json.Unmarshal(gotEffort, &v); err != nil {
+					t.Fatal(err)
+				}
+				if v != tt.wantEffort {
+					t.Errorf("reasoning_effort = %q, want %q", v, tt.wantEffort)
+				}
+			}
+
+			gotTemp, hasTemp := keys["temperature"]
+			if tt.wantTemp == nil {
+				if hasTemp {
+					t.Errorf("temperature = %s, want omitted", gotTemp)
+				}
+			} else {
+				if !hasTemp {
+					t.Fatal("temperature missing")
+				}
+				var v float64
+				if err := json.Unmarshal(gotTemp, &v); err != nil {
+					t.Fatal(err)
+				}
+				if v != *tt.wantTemp {
+					t.Errorf("temperature = %v, want %v", v, *tt.wantTemp)
+				}
+			}
+		})
+	}
+}
+
+func TestIsReasoningModel(t *testing.T) {
+	tests := []struct {
+		model string
+		want  bool
+	}{
+		{"gpt-6-luna", true},
+		{"gpt-6-astra", true},
+		{"GPT-6.1-sol", true},
+		{"gpt-5", true},
+		{"gpt-5.6-sol", true},
+		{"o1", true},
+		{"o1-mini", true},
+		{"o3-mini", true},
+		{"o4-mini", true},
+		{"gpt-4o", false},
+		{"gpt-4o-mini", false},
+		{"gpt-4.1", false},
+		{"gpt-3.5-turbo", false},
+	}
+	for _, tt := range tests {
+		if got := isReasoningModel(tt.model); got != tt.want {
+			t.Errorf("isReasoningModel(%q) = %v, want %v", tt.model, got, tt.want)
+		}
+	}
+}
+
+func TestNormalizeOpenAIReasoningEffort(t *testing.T) {
+	got, err := NormalizeOpenAIReasoningEffort(" HIGH ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := string(payload)
-	for _, want := range []string{`"model":"gpt-6-luna"`, `"max_completion_tokens":450`, `"reasoning_effort":"none"`, `"temperature":0.1`} {
-		if !strings.Contains(s, want) {
-			t.Errorf("payload missing %s: %s", want, s)
-		}
+	if got != "high" {
+		t.Fatalf("got %q, want high", got)
 	}
-	if strings.Contains(s, `"max_tokens"`) {
-		t.Errorf("payload must not include max_tokens: %s", s)
+	if _, err := NormalizeOpenAIReasoningEffort("minimal"); err == nil {
+		t.Fatal("expected error for invalid effort")
+	} else if !strings.Contains(err.Error(), "OPENAI_REASONING_EFFORT") {
+		t.Fatalf("error %v should mention OPENAI_REASONING_EFFORT", err)
 	}
 }
+
+func floatPtr(v float64) *float64 { return &v }
