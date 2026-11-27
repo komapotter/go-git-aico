@@ -37,10 +37,16 @@ func TestPrintHelpDocumentsVersionFlag(t *testing.T) {
 	if !strings.Contains(out, "-v") || !strings.Contains(out, "Enable verbose output") {
 		t.Fatalf("help missing -v documentation:\n%s", out)
 	}
-	for _, cmd := range []string{"auth register", "auth remove", "auth status", "auth switch"} {
+	for _, cmd := range []string{"auth register", "auth remove", "auth status"} {
 		if !strings.Contains(out, cmd) {
 			t.Fatalf("help missing %s:\n%s", cmd, out)
 		}
+	}
+	if strings.Contains(out, "auth switch") || strings.Contains(strings.ToLower(out), "anthropic") {
+		t.Fatalf("help should not mention auth switch or anthropic:\n%s", out)
+	}
+	if strings.Contains(out, "MODEL_PROVIDER") || strings.Contains(out, "ANTHROPIC_") {
+		t.Fatalf("help should not mention MODEL_PROVIDER or ANTHROPIC_*:\n%s", out)
 	}
 	if !strings.Contains(out, "Environment variables") && !strings.Contains(out, "OPENAI_API_KEY") {
 		t.Fatalf("help missing env documentation:\n%s", out)
