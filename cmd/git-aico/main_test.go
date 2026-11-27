@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/briandowns/spinner"
+	"github.com/kelseyhightower/envconfig"
 )
 
 func TestPrintHelpDocumentsVersionFlag(t *testing.T) {
@@ -44,8 +45,33 @@ func TestPrintHelpDocumentsVersionFlag(t *testing.T) {
 	if !strings.Contains(out, "Environment variables") && !strings.Contains(out, "OPENAI_API_KEY") {
 		t.Fatalf("help missing env documentation:\n%s", out)
 	}
+	if !strings.Contains(out, "gpt-6-luna") {
+		t.Fatalf("help missing OpenAI default model gpt-6-luna:\n%s", out)
+	}
 	if !strings.Contains(out, "git-aico auth register") {
 		t.Fatalf("help missing resolution fallback:\n%s", out)
+	}
+}
+
+func TestOpenAIModelDefaultIsGPT6Luna(t *testing.T) {
+	orig, had := os.LookupEnv("OPENAI_MODEL")
+	if err := os.Unsetenv("OPENAI_MODEL"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if had {
+			os.Setenv("OPENAI_MODEL", orig)
+		} else {
+			os.Unsetenv("OPENAI_MODEL")
+		}
+	})
+
+	var cfg Config
+	if err := envconfig.Process("", &cfg); err != nil {
+		t.Fatalf("envconfig.Process: %v", err)
+	}
+	if cfg.OpenAIModel != "gpt-6-luna" {
+		t.Fatalf("OPENAI_MODEL default = %q, want gpt-6-luna", cfg.OpenAIModel)
 	}
 }
 

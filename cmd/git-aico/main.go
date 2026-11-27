@@ -30,7 +30,7 @@ type Config struct {
 	ModelProvider string `envconfig:"MODEL_PROVIDER"` // "openai" or "anthropic"; resolved with config/keyring if unset
 
 	// OpenAI config
-	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
+	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-6-luna"`
 	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
 	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
 
@@ -138,9 +138,9 @@ Environment Variables:
 
   # OpenAI Configuration
   OPENAI_API_KEY       Your OpenAI API key (required when MODEL_PROVIDER=openai unless registered)
-  OPENAI_MODEL         OpenAI model to use (default: gpt-4o)
-  OPENAI_TEMPERATURE   Sampling temperature (default: 0.1)
-  OPENAI_MAX_TOKENS    Maximum number of tokens in the response (default: 450)
+  OPENAI_MODEL         OpenAI model to use (default: gpt-6-luna)
+  OPENAI_TEMPERATURE   Sampling temperature (default: 0.1; sent with reasoning_effort=none)
+  OPENAI_MAX_TOKENS    Maximum completion tokens, including reasoning tokens (default: 450)
 
   # Anthropic Configuration
   ANTHROPIC_API_KEY    Your Anthropic API key (required when MODEL_PROVIDER=anthropic unless registered)

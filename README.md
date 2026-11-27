@@ -63,9 +63,9 @@ These remain optional when the matching key is registered in the OS keyring.
 
 #### OpenAI Configuration (when MODEL_PROVIDER=openai)
 - `OPENAI_API_KEY`: Your OpenAI API key (required when using OpenAI unless registered via `git-aico auth register`)
-- `OPENAI_MODEL`: The OpenAI model to use (default: gpt-4o)
-- `OPENAI_TEMPERATURE`: The OpenAI temperature parameter (default: 0.1)
-- `OPENAI_MAX_TOKENS`: The maximum number of tokens for OpenAI (default: 450)
+- `OPENAI_MODEL`: The OpenAI model to use (default: gpt-6-luna)
+- `OPENAI_TEMPERATURE`: The OpenAI temperature parameter (default: 0.1). Sent only because requests use `reasoning_effort=none` (required for sampling and Chat Completions function calling on gpt-6-luna)
+- `OPENAI_MAX_TOKENS`: The maximum number of completion tokens for OpenAI, mapped to `max_completion_tokens` (default: 450)
 
 #### Anthropic Configuration (when MODEL_PROVIDER=anthropic)
 - `ANTHROPIC_API_KEY`: Your Anthropic API key (required when using Anthropic unless registered via `git-aico auth register`)
@@ -79,7 +79,7 @@ Example of setting environment variables for OpenAI:
 export MODEL_PROVIDER="openai"
 export OPENAI_API_KEY="your_openai_api_key"
 export NUM_CANDIDATES=3
-export OPENAI_MODEL="gpt-4o"
+export OPENAI_MODEL="gpt-6-luna"
 export OPENAI_TEMPERATURE=0.1
 export OPENAI_MAX_TOKENS=450
 ```

@@ -9,11 +9,17 @@ import (
 	"strings"
 )
 
+// gpt-6-luna is a reasoning model. Chat Completions accepts temperature and
+// function calling only when reasoning_effort is "none".
+// See https://developers.openai.com/api/docs/models/gpt-6-luna
+const openAIChatCompletionsReasoningEffort = "none"
+
 type OpenAIRequest struct {
-	Model       string          `json:"model"`
-	Messages    []OpenAIMessage `json:"messages"`
-	MaxTokens   int             `json:"max_tokens"`
-	Temperature float64         `json:"temperature"`
+	Model               string          `json:"model"`
+	Messages            []OpenAIMessage `json:"messages"`
+	MaxCompletionTokens int             `json:"max_completion_tokens"`
+	ReasoningEffort     string          `json:"reasoning_effort"`
+	Temperature         float64         `json:"temperature"`
 }
 
 type OpenAIMessage struct {
@@ -32,10 +38,11 @@ type OpenAIResponse struct {
 
 func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, error) {
 	data := OpenAIRequest{
-		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
-		Model:       openAIModel,       // Use the model from the configuration
-		Temperature: openAITemperature, // Use the temperature from the configuration
-		MaxTokens:   openAIMaxTokens,   // Use the max tokens from the configuration
+		Messages:            []OpenAIMessage{{Role: "user", Content: question}},
+		Model:               openAIModel,
+		MaxCompletionTokens: openAIMaxTokens,
+		ReasoningEffort:     openAIChatCompletionsReasoningEffort,
+		Temperature:         openAITemperature,
 	}
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
@@ -75,8 +82,6 @@ func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float
 	}
 
 	if len(apiResp.Choices) > 0 && apiResp.Choices[0].Message.Role == "assistant" {
-		// Extract the content from the assistant's message
-		//fmt.Println(apiResp.Choices[0].Message.Content)
 		return strings.TrimSpace(apiResp.Choices[0].Message.Content), nil
 	}
 
