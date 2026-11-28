@@ -7,13 +7,21 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"unicode"
 )
 
+// DefaultOpenAIReasoningEffort is the Chat Completions default for go-git-aico
+// (short commit-message candidates). gpt-6-luna accepts temperature and
+// function calling only when reasoning_effort is "none".
+// See https://developers.openai.com/api/docs/models/gpt-6-luna
+const DefaultOpenAIReasoningEffort = "none"
+
 type OpenAIRequest struct {
-	Model       string          `json:"model"`
-	Messages    []OpenAIMessage `json:"messages"`
-	MaxTokens   int             `json:"max_tokens"`
-	Temperature float64         `json:"temperature"`
+	Model               string          `json:"model"`
+	Messages            []OpenAIMessage `json:"messages"`
+	MaxCompletionTokens int             `json:"max_completion_tokens"`
+	ReasoningEffort     string          `json:"reasoning_effort,omitempty"`
+	Temperature         *float64        `json:"temperature,omitempty"`
 }
 
 type OpenAIMessage struct {
@@ -30,13 +38,51 @@ type OpenAIResponse struct {
 	} `json:"choices"`
 }
 
-func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, error) {
-	data := OpenAIRequest{
-		Messages:    []OpenAIMessage{{Role: "user", Content: question}},
-		Model:       openAIModel,       // Use the model from the configuration
-		Temperature: openAITemperature, // Use the temperature from the configuration
-		MaxTokens:   openAIMaxTokens,   // Use the max tokens from the configuration
+// NormalizeOpenAIReasoningEffort lowercases and validates OPENAI_REASONING_EFFORT.
+func NormalizeOpenAIReasoningEffort(s string) (string, error) {
+	v := strings.ToLower(strings.TrimSpace(s))
+	if v == "" {
+		v = DefaultOpenAIReasoningEffort
 	}
+	switch v {
+	case "none", "low", "medium", "high", "xhigh", "max":
+		return v, nil
+	default:
+		return "", fmt.Errorf("invalid OPENAI_REASONING_EFFORT %q (allowed: none, low, medium, high, xhigh, max)", s)
+	}
+}
+
+// isReasoningModel reports whether model needs Chat Completions reasoning_effort
+// (gpt-6*, gpt-5*, and o-series such as o1 / o3 / o4-mini).
+func isReasoningModel(model string) bool {
+	m := strings.ToLower(strings.TrimSpace(model))
+	if strings.HasPrefix(m, "gpt-6") || strings.HasPrefix(m, "gpt-5") {
+		return true
+	}
+	if len(m) >= 2 && m[0] == 'o' && unicode.IsDigit(rune(m[1])) {
+		return true
+	}
+	return false
+}
+
+func buildOpenAIRequest(model, question, reasoningEffort string, temperature float64, maxTokens int) OpenAIRequest {
+	req := OpenAIRequest{
+		Messages:            []OpenAIMessage{{Role: "user", Content: question}},
+		Model:               model,
+		MaxCompletionTokens: maxTokens,
+	}
+	if isReasoningModel(model) {
+		req.ReasoningEffort = reasoningEffort
+	}
+	if !isReasoningModel(model) || reasoningEffort == "none" {
+		t := temperature
+		req.Temperature = &t
+	}
+	return req
+}
+
+func AskOpenAI(openAIURL, openAIKey, openAIModel, reasoningEffort string, openAITemperature float64, openAIMaxTokens int, question string, verbose bool) (string, error) {
+	data := buildOpenAIRequest(openAIModel, question, reasoningEffort, openAITemperature, openAIMaxTokens)
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
 		return "", err
@@ -75,8 +121,6 @@ func AskOpenAI(openAIURL, openAIKey, openAIModel string, openAITemperature float
 	}
 
 	if len(apiResp.Choices) > 0 && apiResp.Choices[0].Message.Role == "assistant" {
-		// Extract the content from the assistant's message
-		//fmt.Println(apiResp.Choices[0].Message.Content)
 		return strings.TrimSpace(apiResp.Choices[0].Message.Content), nil
 	}
 

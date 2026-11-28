@@ -30,9 +30,10 @@ type Config struct {
 	ModelProvider string `envconfig:"MODEL_PROVIDER"` // "openai" or "anthropic"; resolved with config/keyring if unset
 
 	// OpenAI config
-	OpenAIModel       string  `envconfig:"OPENAI_MODEL" default:"gpt-4o"`
-	OpenAITemperature float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
-	OpenAIMaxTokens   int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
+	OpenAIModel           string  `envconfig:"OPENAI_MODEL" default:"gpt-6-luna"`
+	OpenAITemperature     float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
+	OpenAIMaxTokens       int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
+	OpenAIReasoningEffort string  `envconfig:"OPENAI_REASONING_EFFORT" default:"none"`
 
 	// Anthropic config
 	AnthropicModel       string  `envconfig:"ANTHROPIC_MODEL" default:"claude-3-haiku-20240307"`
@@ -138,9 +139,10 @@ Environment Variables:
 
   # OpenAI Configuration
   OPENAI_API_KEY       Your OpenAI API key (required when MODEL_PROVIDER=openai unless registered)
-  OPENAI_MODEL         OpenAI model to use (default: gpt-4o)
-  OPENAI_TEMPERATURE   Sampling temperature (default: 0.1)
-  OPENAI_MAX_TOKENS    Maximum number of tokens in the response (default: 450)
+  OPENAI_MODEL         OpenAI model to use (default: gpt-6-luna)
+  OPENAI_TEMPERATURE   Sampling temperature (default: 0.1; omitted when reasoning_effort is not none)
+  OPENAI_MAX_TOKENS    Maximum completion tokens, including reasoning tokens (default: 450)
+  OPENAI_REASONING_EFFORT Reasoning effort for gpt-6/gpt-5/o-series (default: none; none/low/medium/high/xhigh/max)
 
   # Anthropic Configuration
   ANTHROPIC_API_KEY    Your Anthropic API key (required when MODEL_PROVIDER=anthropic unless registered)
@@ -155,6 +157,15 @@ func isAuthCommand(args []string) bool {
 	return len(args) > 0 && args[0] == "auth"
 }
 
+func validateOpenAIConfig(cfg *Config) error {
+	effort, err := aico.NormalizeOpenAIReasoningEffort(cfg.OpenAIReasoningEffort)
+	if err != nil {
+		return err
+	}
+	cfg.OpenAIReasoningEffort = effort
+	return nil
+}
+
 // credentialStore is the secret backend used when generating commits.
 // Tests replace it with an in-memory store; production uses the OS keyring.
 var credentialStore auth.Store = auth.KeyringStore{}
@@ -163,6 +174,9 @@ func loadAppConfig() (Config, error) {
 	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
 		return cfg, fmt.Errorf("reading envvars: %w", err)
+	}
+	if err := validateOpenAIConfig(&cfg); err != nil {
+		return cfg, err
 	}
 
 	configPath, err := auth.DefaultConfigPath()
@@ -246,7 +260,7 @@ func main() {
 	var response string
 	// Call the appropriate API based on the selected provider
 	if cfg.ModelProvider == "openai" {
-		response, err = aico.AskOpenAI(openAIURL, cfg.OpenAIKey, cfg.OpenAIModel, cfg.OpenAITemperature, cfg.OpenAIMaxTokens, question, verbose)
+		response, err = aico.AskOpenAI(openAIURL, cfg.OpenAIKey, cfg.OpenAIModel, cfg.OpenAIReasoningEffort, cfg.OpenAITemperature, cfg.OpenAIMaxTokens, question, verbose)
 	} else { // anthropic
 		response, err = aico.AskAnthropic(anthropicURL, cfg.AnthropicKey, cfg.AnthropicModel, cfg.AnthropicTemperature, cfg.AnthropicMaxTokens, question, verbose)
 	}
