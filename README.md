@@ -32,23 +32,21 @@ API keys can live in environment variables (CI and one-off overrides) or in the 
 On macOS, the first Keychain access may show a permission dialog.
 
 ```sh
-git-aico auth register              # choose openai or anthropic, then paste the key (no echo)
-git-aico auth register -p openai    # or pass the provider as a flag / argument
-git-aico auth status                # shows registered providers and the active one (never prints the key)
-git-aico auth switch anthropic      # openai or anthropic only
-git-aico auth remove -p openai
+git-aico auth register              # paste the OpenAI API key (no echo)
+git-aico auth status                # shows whether a key is registered (never prints the key)
+git-aico auth remove
 ```
 
-`login` / `logout` are not used; the commands are **register** / **remove** / **status** / **switch**.
+`login` / `logout` are not used; the commands are **register** / **remove** / **status**.
 
-Non-secret settings (the active provider) are stored in `$XDG_CONFIG_HOME/git-aico/config.yml`, defaulting to `~/.config/git-aico/config.yml` (on Windows, `%AppData%\git-aico\config.yml`). API keys are never written to this file.
+API keys are never written to a config file. Existing OpenAI keys stored in the OS keyring remain readable.
 
 ### Credential resolution order
 
 When generating a commit message, credentials are resolved in this order:
 
-1. Environment variables win if set (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `MODEL_PROVIDER`)
-2. Otherwise the OS keyring plus local config
+1. Environment variable `OPENAI_API_KEY` wins if set
+2. Otherwise the OS keyring
 3. Otherwise an error suggesting `git-aico auth register`
 
 Existing env-only workflows keep working without running `auth register`.
@@ -58,41 +56,22 @@ Existing env-only workflows keep working without running `auth register`.
 These remain optional when the matching key is registered in the OS keyring.
 
 #### General Configuration
-- `MODEL_PROVIDER`: The AI provider to use: "openai" or "anthropic" (default: openai, or the value from local config)
 - `NUM_CANDIDATES`: The number of commit message candidates to generate (default: 3)
 
-#### OpenAI Configuration (when MODEL_PROVIDER=openai)
-- `OPENAI_API_KEY`: Your OpenAI API key (required when using OpenAI unless registered via `git-aico auth register`)
+#### OpenAI Configuration
+- `OPENAI_API_KEY`: Your OpenAI API key (required unless registered via `git-aico auth register`)
 - `OPENAI_MODEL`: The OpenAI model to use (default: gpt-6-luna)
 - `OPENAI_TEMPERATURE`: The OpenAI temperature parameter (default: 0.1). Sent for non-reasoning models, or when `OPENAI_REASONING_EFFORT=none`; omitted otherwise
 - `OPENAI_MAX_TOKENS`: The maximum number of completion tokens for OpenAI, mapped to `max_completion_tokens` (default: 450)
 - `OPENAI_REASONING_EFFORT`: Reasoning effort for reasoning models (gpt-6 / gpt-5 / o-series). Default: none. Allowed: none, low, medium, high, xhigh, max. Omitted from the request for non-reasoning models such as gpt-4o
 
-#### Anthropic Configuration (when MODEL_PROVIDER=anthropic)
-- `ANTHROPIC_API_KEY`: Your Anthropic API key (required when using Anthropic unless registered via `git-aico auth register`)
-- `ANTHROPIC_MODEL`: The Anthropic model to use (default: claude-3-haiku-20240307)
-- `ANTHROPIC_TEMPERATURE`: The Anthropic temperature parameter (default: 0.1)
-- `ANTHROPIC_MAX_TOKENS`: The maximum number of tokens for Anthropic (default: 450)
-
-Example of setting environment variables for OpenAI:
+Example of setting environment variables:
 
 ```sh
-export MODEL_PROVIDER="openai"
 export OPENAI_API_KEY="your_openai_api_key"
 export NUM_CANDIDATES=3
 export OPENAI_MODEL="gpt-6-luna"
 export OPENAI_TEMPERATURE=0.1
 export OPENAI_MAX_TOKENS=450
 export OPENAI_REASONING_EFFORT=none
-```
-
-Example of setting environment variables for Anthropic:
-
-```sh
-export MODEL_PROVIDER="anthropic"
-export ANTHROPIC_API_KEY="your_anthropic_api_key"
-export NUM_CANDIDATES=3
-export ANTHROPIC_MODEL="claude-3-haiku-20240307"
-export ANTHROPIC_TEMPERATURE=0.1
-export ANTHROPIC_MAX_TOKENS=450
 ```

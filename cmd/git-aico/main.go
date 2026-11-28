@@ -16,29 +16,18 @@ import (
 )
 
 const (
-	openAIURL    = "https://api.openai.com/v1/chat/completions"
-	anthropicURL = "https://api.anthropic.com/v1/messages"
+	openAIURL = "https://api.openai.com/v1/chat/completions"
 )
 
 type Config struct {
-	// API Keys
-	OpenAIKey    string `envconfig:"OPENAI_API_KEY"`
-	AnthropicKey string `envconfig:"ANTHROPIC_API_KEY"`
+	OpenAIKey string `envconfig:"OPENAI_API_KEY"`
 
-	// General config
-	NumCandidates int    `envconfig:"NUM_CANDIDATES" default:"3"`
-	ModelProvider string `envconfig:"MODEL_PROVIDER"` // "openai" or "anthropic"; resolved with config/keyring if unset
+	NumCandidates int `envconfig:"NUM_CANDIDATES" default:"3"`
 
-	// OpenAI config
 	OpenAIModel           string  `envconfig:"OPENAI_MODEL" default:"gpt-6-luna"`
 	OpenAITemperature     float64 `envconfig:"OPENAI_TEMPERATURE" default:"0.1"`
 	OpenAIMaxTokens       int     `envconfig:"OPENAI_MAX_TOKENS" default:"450"`
 	OpenAIReasoningEffort string  `envconfig:"OPENAI_REASONING_EFFORT" default:"none"`
-
-	// Anthropic config
-	AnthropicModel       string  `envconfig:"ANTHROPIC_MODEL" default:"claude-3-haiku-20240307"`
-	AnthropicTemperature float64 `envconfig:"ANTHROPIC_TEMPERATURE" default:"0.1"`
-	AnthropicMaxTokens   int     `envconfig:"ANTHROPIC_MAX_TOKENS" default:"450"`
 }
 
 var (
@@ -120,35 +109,26 @@ Options:
   -j        Output commit message suggestions in Japanese
 
 Auth commands:
-  git-aico auth register   Store an API key in the OS keyring
-  git-aico auth remove     Remove a stored API key from the OS keyring
-  git-aico auth status     Show registered providers and the active provider
-  git-aico auth switch     Switch active provider (openai or anthropic)
+  git-aico auth register   Store an OpenAI API key in the OS keyring
+  git-aico auth remove     Remove the stored OpenAI API key from the OS keyring
+  git-aico auth status     Show whether an OpenAI API key is registered
 
 API key resolution order:
-  1. Environment variables (OPENAI_API_KEY / ANTHROPIC_API_KEY / MODEL_PROVIDER)
-  2. OS keyring + local config (~/.config/git-aico/config.yml)
+  1. Environment variable OPENAI_API_KEY
+  2. OS keyring
   3. Error suggesting: git-aico auth register
 
 Existing env-only workflows keep working without auth register.
 On macOS, the first Keychain access may show a permission dialog.
 
 Environment Variables:
-  MODEL_PROVIDER       Model provider to use: "openai" or "anthropic" (default: openai, or local config)
   NUM_CANDIDATES       Number of commit message candidates to generate (default: 3)
 
-  # OpenAI Configuration
-  OPENAI_API_KEY       Your OpenAI API key (required when MODEL_PROVIDER=openai unless registered)
+  OPENAI_API_KEY       Your OpenAI API key (required unless registered via git-aico auth register)
   OPENAI_MODEL         OpenAI model to use (default: gpt-6-luna)
   OPENAI_TEMPERATURE   Sampling temperature (default: 0.1; omitted when reasoning_effort is not none)
   OPENAI_MAX_TOKENS    Maximum completion tokens, including reasoning tokens (default: 450)
   OPENAI_REASONING_EFFORT Reasoning effort for gpt-6/gpt-5/o-series (default: none; none/low/medium/high/xhigh/max)
-
-  # Anthropic Configuration
-  ANTHROPIC_API_KEY    Your Anthropic API key (required when MODEL_PROVIDER=anthropic unless registered)
-  ANTHROPIC_MODEL      Anthropic model to use (default: claude-3-haiku-20240307)
-  ANTHROPIC_TEMPERATURE Sampling temperature (default: 0.1)
-  ANTHROPIC_MAX_TOKENS Maximum number of tokens in the response (default: 450)
 `
 	fmt.Println(helpText)
 }
@@ -179,21 +159,11 @@ func loadAppConfig() (Config, error) {
 		return cfg, err
 	}
 
-	configPath, err := auth.DefaultConfigPath()
-	if err != nil {
-		return cfg, err
-	}
-	fileCfg, err := auth.LoadFileConfig(configPath)
-	if err != nil {
-		return cfg, err
-	}
-	creds, err := auth.Resolve(os.LookupEnv, fileCfg, credentialStore)
+	creds, err := auth.Resolve(os.LookupEnv, credentialStore)
 	if err != nil {
 		return cfg, err
 	}
 	cfg.OpenAIKey = creds.OpenAIKey
-	cfg.AnthropicKey = creds.AnthropicKey
-	cfg.ModelProvider = creds.ModelProvider
 	if err := creds.Validate(); err != nil {
 		return cfg, err
 	}
@@ -243,11 +213,7 @@ func main() {
 	}
 
 	if verbose {
-		if cfg.ModelProvider == "openai" {
-			fmt.Printf("Using OpenAI model: %s\n", cfg.OpenAIModel)
-		} else {
-			fmt.Printf("Using Anthropic model: %s\n", cfg.AnthropicModel)
-		}
+		fmt.Printf("Using OpenAI model: %s\n", cfg.OpenAIModel)
 	}
 
 	sp := newSpinner(os.Stderr, stdoutAndStderrAreTTY())
@@ -257,17 +223,11 @@ func main() {
 	// Create a question based on the diff output
 	question := aico.CreateAIQuestion(diffOutput, cfg.NumCandidates, japaneseOutput)
 
-	var response string
-	// Call the appropriate API based on the selected provider
-	if cfg.ModelProvider == "openai" {
-		response, err = aico.AskOpenAI(openAIURL, cfg.OpenAIKey, cfg.OpenAIModel, cfg.OpenAIReasoningEffort, cfg.OpenAITemperature, cfg.OpenAIMaxTokens, question, verbose)
-	} else { // anthropic
-		response, err = aico.AskAnthropic(anthropicURL, cfg.AnthropicKey, cfg.AnthropicModel, cfg.AnthropicTemperature, cfg.AnthropicMaxTokens, question, verbose)
-	}
+	response, err := aico.AskOpenAI(openAIURL, cfg.OpenAIKey, cfg.OpenAIModel, cfg.OpenAIReasoningEffort, cfg.OpenAITemperature, cfg.OpenAIMaxTokens, question, verbose)
 	sp.stop()
 
 	if err != nil {
-		fmt.Printf("Error asking %s: %v\n", strings.Title(cfg.ModelProvider), err)
+		fmt.Printf("Error asking OpenAI: %v\n", err)
 		return
 	}
 

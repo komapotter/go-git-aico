@@ -74,17 +74,3 @@ func SaveFileConfig(path string, cfg FileConfig) error {
 	}
 	return os.WriteFile(path, buf.Bytes(), 0o600)
 }
-
-// SetActiveProvider updates model_provider in the config file.
-func SetActiveProvider(path, provider string) error {
-	p, err := NormalizeProvider(provider)
-	if err != nil {
-		return err
-	}
-	cfg, err := LoadFileConfig(path)
-	if err != nil {
-		return err
-	}
-	cfg.ModelProvider = p
-	return SaveFileConfig(path, cfg)
-}
