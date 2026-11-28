@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.3.6](https://github.com/komapotter/go-git-aico/compare/v0.3.5...v0.3.6) - 2026-11-28
+
+### Other Changes
+- OpenAIのデフォルトモデルをgpt-6-lunaに移行 by @komapotter in https://github.com/komapotter/go-git-aico/pull/40
+- Anthropic対応を削除してOpenAI専用にする by @komapotter in https://github.com/komapotter/go-git-aico/pull/42
+
 ## [v0.3.5](https://github.com/komapotter/go-git-aico/compare/v0.3.4...v0.3.5) - 2026-10-23
 
 ### Other Changes
